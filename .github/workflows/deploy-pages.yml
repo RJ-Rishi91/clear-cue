@@ -32,8 +32,9 @@ jobs:
 
       - name: Build frontend for GitHub Pages
         env:
-          # Set VITE_API_URL secret in GitHub repo Settings -> Secrets -> Actions
+          # Set these secrets in GitHub repo Settings -> Secrets -> Actions
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_BASE_PATH: /clear-cue/
         run: npx vite build
 
       - name: Setup Pages

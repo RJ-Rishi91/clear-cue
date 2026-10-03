@@ -1,143 +1,270 @@
-# ClearCue Deployment Guide: GitHub Pages + Render + MongoDB Atlas
+# ClearCue — Deployment & Server Requirements Guide
 
-This guide walks you through deploying **ClearCue** to production with:
-- **Frontend:** Hosted on **GitHub Pages** (Static SPA)
-- **Backend:** Hosted on **Render** (Node.js/Express Web Service)
-- **Database:** Hosted on **MongoDB Atlas** (Free M0 Cluster)
-- **Cost:** **$0.00 / Free Tier** across all services (with built-in local heuristic AI engines requiring no paid tools)
+> **Frontend:** GitHub Pages (Static SPA)  
+> **Backend:** Render (Node.js Web Service)  
+> **Database:** MongoDB Atlas (Free M0 Cluster)  
+> **Total Cost:** $0.00 / Free Tier
 
 ---
 
-## Architecture Overview
+## Architecture Diagram
 
 ```
-                      +---------------------------------------+
-                      |             USER BROWSER              |
-                      +---------------------------------------+
-                                     |         |
-                     Static Assets   |         | REST / JWT API
-                  (HTML, CSS, JS)    |         | (with CORS enabled)
-                                     v         v
-+---------------------------------------+   +---------------------------------------+
-|             GITHUB PAGES              |   |            RENDER BACKEND             |
-|   https://<username>.github.io/<repo> |   |   https://<service-name>.onrender.com |
-+---------------------------------------+   +---------------------------------------+
-                                                               |
-                                            Mongoose (TLS)    | Automatic Fallback
-                                            Connection String | to Local SQLite Store
-                                                               v
-                                            +---------------------------------------+
-                                            |          MONGODB ATLAS CLOUD          |
-                                            |       mongodb+srv://.../clearcue      |
-                                            +---------------------------------------+
+                        ┌───────────────────────────────┐
+                        │         USER BROWSER          │
+                        └──────────┬────────┬───────────┘
+                     Static Assets │        │ REST API + JWT
+                     (HTML/CSS/JS) │        │ (CORS enabled)
+                                   ▼        ▼
+    ┌──────────────────────────┐  ┌──────────────────────────────┐
+    │      GITHUB PAGES        │  │       RENDER BACKEND          │
+    │ rj-rishi91.github.io/    │  │ clearcue-backend.onrender.com │
+    │ clear-cue/               │  │                                │
+    │ • index.html (SPA)       │  │ • Node.js 22 Express Server    │
+    │ • assets/ (JS + CSS)     │  │ • Local NLP Heuristic Engine   │
+    └──────────────────────────┘  │ • JWT Auth + bcrypt             │
+                                   │ • Optional Gemini Free Tier     │
+                                   └──────────────┬─────────────────┘
+                                                   │
+                                    Mongoose TLS   │  SQLite Fallback
+                                                   ▼
+                                   ┌──────────────────────────────┐
+                                   │      MONGODB ATLAS CLOUD     │
+                                   │  mongodb+srv://.../clearcue  │
+                                   │  Free M0 Shared Cluster      │
+                                   └──────────────────────────────┘
 ```
 
 ---
 
-## Step 1: Set up MongoDB Atlas (Database)
+## Server Requirements
 
-1. Go to [MongoDB Atlas](https://www.mongodb.com/atlas) and sign in or create a free account.
-2. Click **Create a Deployment** and select the **M0 Free Cluster** (Shared).
-3. Under **Security Quickstart**:
-   - **Database Access:** Create a database user (e.g. username `clearcue_admin`, create a strong password).
-   - **Network Access:** Add IP Address `0.0.0.0/0` (Allow Access from Anywhere) so Render's cloud servers can connect to your cluster.
-4. Click **Connect** -> **Drivers** (Node.js).
-5. Copy your connection string. It will look like:
-   ```
-   mongodb+srv://clearcue_admin:<password>@cluster0.abcde.mongodb.net/clearcue?retryWrites=true&w=majority
-   ```
-   *(Replace `<password>` with your database user password, and set database name to `clearcue`)*.
+### Minimum Hardware (Render Free Tier)
+
+| Resource        | Requirement                    |
+| :-------------- | :----------------------------- |
+| **CPU**         | Shared (Free tier)             |
+| **RAM**         | 512 MB minimum                 |
+| **Disk**        | Ephemeral (no persistent disk) |
+| **Network**     | HTTPS with auto-TLS            |
+
+### Runtime Requirements
+
+| Requirement      | Value                         |
+| :--------------- | :---------------------------- |
+| **Node.js**      | v18+ (v22 recommended)        |
+| **npm**          | v9+                           |
+| **Build Command**| `npm install && npm run build` |
+| **Start Command**| `npm start` (`node dist/server.cjs`) |
+| **Port**         | `PORT` env var (default 3000, Render auto-assigns 10000) |
+| **Health Check** | `GET /api/status` returns HTTP 200 |
+
+### Environment Variables
+
+| Variable         | Required | Description                                                   |
+| :--------------- | :------: | :------------------------------------------------------------ |
+| `NODE_ENV`       | ✅       | Set to `production` on Render                                 |
+| `MONGODB_URI`    | ❌       | MongoDB Atlas connection string. If omitted, SQLite fallback  |
+| `JWT_SECRET`     | ✅       | Signing key for JWT tokens. Render can auto-generate this     |
+| `GEMINI_API_KEY` | ❌       | Optional. Google Gemini API key for enhanced AI. Local NLP engine works without it |
+| `PORT`           | ❌       | Render sets this automatically. Default 3000 for local dev    |
+
+### Database Options
+
+| Mode               | Trigger                     | Storage                                 |
+| :----------------- | :-------------------------- | :-------------------------------------- |
+| **MongoDB Atlas**  | `MONGODB_URI` is set        | Cloud-hosted, persistent, scalable      |
+| **SQLite Fallback**| `MONGODB_URI` is NOT set    | Local file `data/clearcue.db` (ephemeral on Render) |
+
+> ⚠️ **Important:** On Render Free tier, the filesystem is ephemeral — SQLite data resets on each redeploy. For persistent production data, always use MongoDB Atlas.
 
 ---
 
-## Step 2: Deploy Backend to Render
+## Step-by-Step Deployment
 
-1. Go to [Render.com](https://render.com) and sign in.
-2. Click **New +** -> **Web Service**.
-3. Connect your GitHub repository containing the ClearCue code.
-4. Configure the Web Service settings:
-   - **Name:** `clearcue-backend` (or your chosen name)
-   - **Region:** Any close to you (e.g., Oregon, Frankfurt, Singapore)
-   - **Branch:** `main` (or `master`)
-   - **Root Directory:** *(leave blank)*
-   - **Runtime:** `Node`
-   - **Build Command:**
-     ```bash
-     npm install && npm run build
-     ```
-   - **Start Command:**
-     ```bash
-     npm start
-     ```
-   - **Instance Type:** `Free`
-5. Under **Environment Variables**, add:
-   | Key | Value | Description |
-   | :--- | :--- | :--- |
-   | `NODE_ENV` | `production` | Production mode |
-   | `MONGODB_URI` | *Your Atlas connection string from Step 1* | MongoDB Atlas Cloud URI |
-   | `JWT_SECRET` | *A secure random string (e.g., generate with `openssl rand -hex 32`)* | Used for JWT signing |
-   | `GEMINI_API_KEY` | *(Optional)* | Optional free tier key. Local AI engine works at $0 without it! |
-6. Click **Deploy Web Service**.
-7. Once deployed, Render will provide a public URL:
+### Step 1: MongoDB Atlas Setup (Free)
+
+1. Go to [mongodb.com/atlas](https://www.mongodb.com/atlas) → Sign in / Create free account.
+2. **Create Deployment** → Select **M0 Free** (Shared) cluster.
+3. **Security Setup:**
+   - **Database Access:** Create user (e.g. `clearcue_admin` with a strong password).
+   - **Network Access:** Add `0.0.0.0/0` (Allow from Anywhere) so Render can connect.
+4. Click **Connect** → **Drivers (Node.js)** → Copy connection string:
    ```
-   https://clearcue-backend.onrender.com
+   mongodb+srv://clearcue_admin:<password>@cluster0.xxxxx.mongodb.net/clearcue?retryWrites=true&w=majority
    ```
-   Verify it by visiting `https://clearcue-backend.onrender.com/api/status` in your browser. You will see:
+   Replace `<password>` with your DB user password.
+
+---
+
+### Step 2: Deploy Backend to Render
+
+#### Option A: Blueprint (Recommended — One-Click)
+
+1. Go to [render.com](https://render.com) → Sign in.
+2. Click **New +** → **Blueprint**.
+3. Connect your GitHub repository `RJ-Rishi91/clear-cue`.
+4. Render detects `render.yaml` and auto-configures the service.
+5. Fill in the prompted secret values:
+   - `MONGODB_URI` → Your Atlas connection string from Step 1
+   - `GEMINI_API_KEY` → (Optional) Your Google AI Studio API key
+6. Click **Apply** → Render builds and deploys automatically.
+
+#### Option B: Manual Web Service
+
+1. Go to [render.com](https://render.com) → **New +** → **Web Service**.
+2. Connect GitHub repo: `RJ-Rishi91/clear-cue`.
+3. Configure:
+
+   | Setting          | Value                          |
+   | :--------------- | :----------------------------- |
+   | **Name**         | `clearcue-backend`             |
+   | **Region**       | Oregon (or nearest)            |
+   | **Branch**       | `master`                       |
+   | **Runtime**      | Node                           |
+   | **Build Command**| `npm install && npm run build` |
+   | **Start Command**| `npm start`                    |
+   | **Instance Type**| Free                           |
+
+4. **Environment Variables** → Add:
+
+   | Key              | Value                                              |
+   | :--------------- | :------------------------------------------------- |
+   | `NODE_ENV`       | `production`                                       |
+   | `NODE_VERSION`   | `22`                                               |
+   | `MONGODB_URI`    | `mongodb+srv://clearcue_admin:...` (from Step 1)   |
+   | `JWT_SECRET`     | Click **Generate** (or run `openssl rand -hex 32`) |
+   | `GEMINI_API_KEY` | *(Optional)* Your Google AI Studio key             |
+
+5. Click **Deploy Web Service**.
+6. **Verify:** Visit `https://clearcue-backend.onrender.com/api/status`:
    ```json
    {
      "status": "online",
      "service": "ClearCue Backend",
      "database": "MongoDB Atlas",
-     "mongoConnected": true
+     "mongoConnected": true,
+     "environment": "production"
    }
    ```
 
+> 💡 **Render Free Tier:** Services spin down after 15 min of inactivity and cold-start on next request (~30-50s). Upgrade to Starter ($7/mo) for always-on.
+
 ---
 
-## Step 3: Deploy Frontend to GitHub Pages
+### Step 3: Deploy Frontend to GitHub Pages
 
-1. Push your project to your GitHub repository.
-2. In your GitHub repository:
-   - Go to **Settings** -> **Secrets and variables** -> **Actions**.
-   - Click **New repository secret**.
-   - Name: `VITE_API_URL`
-   - Secret Value: *Your Render backend URL from Step 2*, e.g.:
+1. In your GitHub repository **Settings** → **Secrets and variables** → **Actions**:
+   - Click **New repository secret**
+   - **Name:** `VITE_API_URL`
+   - **Value:** Your Render backend URL, e.g.:
      ```
      https://clearcue-backend.onrender.com
      ```
-3. Enable GitHub Pages:
-   - Go to **Settings** -> **Pages**.
-   - Under **Build and deployment** -> **Source**, select **GitHub Actions**.
-4. The included workflow `.github/workflows/deploy-pages.yml` will automatically build the client SPA with your `VITE_API_URL` and deploy it to GitHub Pages.
-5. Your frontend will be live at:
+
+2. In **Settings** → **Pages**:
+   - **Source:** Select **GitHub Actions**
+
+3. Push to `master` (or `main`) — the workflow in `.github/workflows/deploy-pages.yml` automatically:
+   - Installs dependencies
+   - Builds the SPA with `VITE_API_URL` and `VITE_BASE_PATH=/clear-cue/`
+   - Deploys to GitHub Pages
+
+4. **Your frontend is live at:**
    ```
-   https://<your-username>.github.io/<repo-name>/
+   https://rj-rishi91.github.io/clear-cue/
    ```
 
 ---
 
-## Step 4: Verify the Live System
+## Scalability Notes
 
-1. Visit your GitHub Pages URL in your browser.
-2. Click **Sign Up** in the navigation bar.
-3. Fill in your details (e.g. Name: `Sarah Jenkins`, Role: `Insurance Operations Specialist`).
-4. Note that the modal shows `Database Engine: MongoDB Atlas Cloud` with a pulsing green indicator.
-5. Click **Complete Registration**:
-   - The user account is saved to MongoDB Atlas.
-   - A JWT Bearer token is issued and stored in your browser session.
-   - Your avatar badge appears in the top navigation bar.
-6. Test a message check or AI Mock Call — your scores and session histories will persist directly to MongoDB Atlas!
-7. Click the user badge -> **Log Out** to confirm session termination.
+### Current Architecture (Free Tier)
+
+```
+  1 Render Instance (512 MB) ──→ 1 MongoDB Atlas M0 (512 MB Storage, Shared)
+```
+
+- Supports **~50-100 concurrent users** comfortably.
+- Local NLP engine runs in-process (zero external API calls for scoring).
+- JWT auth is stateless — no session store needed.
+
+### Scaling Up (When Needed)
+
+| Bottleneck        | Solution                                                     | Cost        |
+| :---------------- | :----------------------------------------------------------- | :---------- |
+| **Cold starts**   | Render Starter plan (always-on)                              | $7/mo       |
+| **More users**    | Render Standard plan (1 GB RAM, dedicated CPU)               | $25/mo      |
+| **Database size** | MongoDB Atlas M2/M5 (2-5 GB storage, dedicated)              | $9-25/mo    |
+| **Horizontal**    | Render auto-scaling (multiple instances + load balancer)      | $25+/mo     |
+| **AI quality**    | Add `GEMINI_API_KEY` for enhanced Gemini-powered evaluations  | Free tier   |
+
+### Production Hardening Checklist
+
+- [ ] Set `MONGODB_URI` to Atlas (don't rely on SQLite in production)
+- [ ] Generate a strong `JWT_SECRET` (min 32 characters)
+- [ ] Enable Render health checks (`/api/status`)
+- [ ] Configure Atlas IP whitelist (or keep `0.0.0.0/0` for Render)
+- [ ] Add custom domain (optional) in both Render and GitHub Pages settings
+- [ ] Enable Render auto-deploy on push
+- [ ] Monitor via Render dashboard metrics
 
 ---
 
-## Local Development vs. Production Summary
+## Local Development
 
-| Feature | Local Development | Production |
-| :--- | :--- | :--- |
-| **Frontend URL** | `http://localhost:3000` | `https://<user>.github.io/<repo>/` |
-| **Backend URL** | `http://localhost:3000/api` | `https://<service>.onrender.com/api` |
-| **Database** | SQLite fallback (`data/clearcue.db`) or local Mongo | MongoDB Atlas Cloud (`MONGODB_URI`) |
-| **Authentication** | JWT (`clearcue_auth_token` in localStorage) | JWT (`clearcue_auth_token` in localStorage) |
-| **CORS** | Configured for `*` with credentials | Configured for `*` with credentials |
-| **Cost** | **$0.00** | **$0.00 (All Free Tiers)** |
+```bash
+# Clone
+git clone https://github.com/RJ-Rishi91/clear-cue.git
+cd clear-cue
+
+# Install
+npm install
+
+# (Optional) Configure .env
+cp .env.example .env
+# Edit .env with your MONGODB_URI, JWT_SECRET, GEMINI_API_KEY
+
+# Run (works with zero config — uses SQLite + local NLP)
+npm run dev
+
+# Open http://localhost:3000
+```
+
+---
+
+## Build & Test Commands
+
+| Command             | Description                                        |
+| :------------------ | :------------------------------------------------- |
+| `npm run dev`       | Start development server with Vite HMR             |
+| `npm run build`     | Build frontend (Vite) + backend (esbuild) for prod |
+| `npm start`         | Run production server from `dist/server.cjs`       |
+| `npm run lint`      | TypeScript type-check (`tsc --noEmit`)             |
+| `npm run clean`     | Remove `dist/` build artifacts                     |
+
+---
+
+## File Structure
+
+```
+clear-cue/
+├── .github/workflows/
+│   └── deploy-pages.yml      # GitHub Pages CI/CD (auto-deploys on push)
+├── data/
+│   └── clearcue.db            # SQLite fallback DB (gitignored, auto-created)
+├── dist/                      # Production build output (gitignored)
+├── src/                       # React 19 frontend source
+│   ├── components/            # All UI views (Message Checker, Mock Call, etc.)
+│   ├── utils/api.ts           # API client with JWT auth headers
+│   ├── App.tsx                # Root component
+│   └── types.ts               # TypeScript interfaces
+├── auth.ts                    # JWT middleware + bcrypt
+├── db.ts                      # SQLite schema + queries
+├── mongo.ts                   # Mongoose models + Atlas connection
+├── server.ts                  # Express server + NLP engine + all API routes
+├── render.yaml                # Render Blueprint deployment spec
+├── DEPLOYMENT.md              # This file
+├── vite.config.ts             # Vite bundler config
+└── package.json               # Dependencies + scripts + engines
+```

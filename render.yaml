@@ -3,11 +3,16 @@ services:
     name: clearcue-backend
     runtime: node
     plan: free
+    region: oregon
     buildCommand: npm install && npm run build
     startCommand: npm start
+    healthCheckPath: /api/status
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 22
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
