@@ -127,7 +127,7 @@ export default function App() {
   const [checkerPrefill, setCheckerPrefill] = useState<string>('');
   const [checkerAudience, setCheckerAudience] = useState<Audience>('agency_owner');
 
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(DEFAULT_GUEST_USER);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
@@ -157,19 +157,11 @@ export default function App() {
           }
           return;
         }
-
-        // If no JWT token, load existing active user from persistent store
-        const users = await fetchUsers();
-        if (users && users.length > 0) {
-          const activeUser = users[0];
-          setCurrentUser(activeUser);
-          const remoteProgress = await fetchUserProgress(activeUser.id);
-          if (remoteProgress) {
-            setProgress(remoteProgress);
-          }
-        }
+        // If not authenticated, stay logged out
+        setCurrentUser(null);
       } catch (err) {
-        console.warn('Initial session loading warning, using local cache:', err);
+        console.warn('Initial session loading warning:', err);
+        setCurrentUser(null);
       }
     }
     loadInitialSession();
@@ -291,6 +283,29 @@ export default function App() {
     });
   };
 
+  const handlePronunciationCompleted = (accuracyScore: number) => {
+    setProgress((prev) => {
+      const currentCount = prev.pronunciationChecksCount || 0;
+      const currentAvg = prev.pronunciationAvgAccuracy || 0;
+      const newCount = currentCount + 1;
+      const newAvg = Math.round(((currentAvg * currentCount) + accuracyScore) / newCount);
+      const next = {
+        ...prev,
+        pronunciationChecksCount: newCount,
+        pronunciationAvgAccuracy: newAvg,
+      };
+
+      if (currentUser?.id) {
+        saveUserProgress(currentUser.id, {
+          pronunciationChecksCount: newCount,
+          pronunciationAvgAccuracy: newAvg,
+        }).catch(console.warn);
+      }
+
+      return next;
+    });
+  };
+
   const handleResetProgress = async () => {
     const userName = currentUser?.name || 'Current User';
     if (window.confirm(`Are you sure you want to reset training metrics for ${userName}?`)) {
@@ -368,7 +383,10 @@ export default function App() {
         )}
 
         {currentView === 'pronunciation' && (
-          <PronunciationView />
+          <PronunciationView
+            currentUser={currentUser || undefined}
+            onPronunciationCompleted={handlePronunciationCompleted}
+          />
         )}
 
         {currentView === 'flashcards' && (
@@ -407,6 +425,7 @@ export default function App() {
           onClose={() => setProfileModalOpen(false)}
           currentUser={currentUser}
           onUserChanged={handleUserChanged}
+          onOpenSignup={() => handleOpenAuthModal('signup')}
         />
       )}
 

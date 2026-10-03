@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PracticeScenario, PracticeEvaluationResult, Audience } from '../types';
+import { API_BASE, getAuthHeaders } from '../utils/api';
 import { PRACTICE_SCENARIOS } from '../data/scenariosData';
 import { 
   Target, 
@@ -53,15 +54,15 @@ export const PracticeView: React.FC<PracticeViewProps> = ({
     setEvalResult(null);
 
     try {
-      const res = await fetch('/api/evaluate-practice', {
+      const res = await fetch(`${API_BASE}/evaluate-practice`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           scenarioId: currentScenario.id,
           scenarioTitle: currentScenario.title,
           scenarioGoal: currentScenario.goal,
           userResponse,
-          audience: currentScenario.audienceLabel,
+          audience: currentScenario.audience,
         }),
       });
 

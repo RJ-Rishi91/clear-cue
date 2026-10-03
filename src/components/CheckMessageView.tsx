@@ -9,6 +9,7 @@ import {
   CheckedMessageRecord 
 } from '../types';
 import { getSoftAnimatedCuckooVoice } from '../utils/voiceUtils';
+import { API_BASE, getAuthHeaders } from '../utils/api';
 import { 
   Sparkles, 
   Send, 
@@ -156,9 +157,9 @@ export const CheckMessageView: React.FC<CheckMessageViewProps> = ({
     setSavedBadge(false);
 
     try {
-      const res = await fetch('/api/analyze-message', {
+      const res = await fetch(`${API_BASE}/analyze-message`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           message,
           audience,

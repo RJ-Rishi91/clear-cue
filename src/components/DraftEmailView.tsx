@@ -6,6 +6,7 @@ import {
   EmailDraftResponse 
 } from '../types';
 import { getSoftAnimatedCuckooVoice } from '../utils/voiceUtils';
+import { API_BASE, getAuthHeaders } from '../utils/api';
 import { MrCuckoo } from './MrCuckoo';
 import { 
   Send, 
@@ -84,9 +85,9 @@ export const DraftEmailView: React.FC<DraftEmailViewProps> = ({ onSendToChecker 
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/draft-email', {
+      const res = await fetch(`${API_BASE}/draft-email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           topic: topic.trim(),
           audience,
@@ -518,7 +519,12 @@ export const DraftEmailView: React.FC<DraftEmailViewProps> = ({ onSendToChecker 
               {onSendToChecker && (
                 <button
                   id="send-to-checker-btn"
-                  onClick={() => onSendToChecker(draftResult.body, audience)}
+                  onClick={() =>
+                    onSendToChecker(
+                      draftResult.subject ? `Subject: ${draftResult.subject}\n\n${draftResult.body}` : draftResult.body,
+                      audience
+                    )
+                  }
                   className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-800 hover:text-emerald-900 border border-slate-200 text-xs font-bold transition-all cursor-pointer"
                 >
                   <span>Evaluate this Draft in 7 Cs Scorecard</span>

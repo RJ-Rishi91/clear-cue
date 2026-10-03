@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AccentType, AccentProfile, PronunciationEvaluation, WordPronunciationFeedback } from '../types';
+import { AccentType, AccentProfile, PronunciationEvaluation, WordPronunciationFeedback, UserProfile } from '../types';
+import { API_BASE, getAuthHeaders } from '../utils/api';
 import { MrCuckoo } from './MrCuckoo';
 import { 
   Mic, 
@@ -179,7 +180,55 @@ function wordDistance(a: string, b: string): number {
   return dp[m][n];
 }
 
-export const PronunciationView: React.FC = () => {
+const SYLLABLE_DICTIONARY: Record<string, string> = {
+  schedule: 'sked · jool',
+  process: 'pro · cess',
+  water: 'wa · ter',
+  carrier: 'car · ri · er',
+  endorsement: 'en · dorse · ment',
+  deductible: 'de · duct · i · ble',
+  premium: 'pre · mi · um',
+  liability: 'li · a · bil · i · ty',
+  policyholder: 'pol · i · cy · hold · er',
+  certificate: 'cer · tif · i · cate',
+  underwriter: 'un · der · writ · er',
+  commercial: 'com · mer · cial',
+  documentation: 'doc · u · men · ta · tion',
+  priority: 'pri · or · i · ty',
+  confirm: 'con · firm',
+  provide: 'pro · vide',
+  signed: 'signed',
+  binder: 'bind · er',
+  coverage: 'cov · er · age',
+  renewal: 're · new · al',
+  subrogation: 'sub · ro · ga · tion',
+  negligent: 'neg · li · gent',
+  occurrence: 'oc · cur · rence',
+  identification: 'i · den · ti · fi · ca · tion',
+  payroll: 'pay · roll',
+  fleet: 'fleet',
+  today: 'to · day',
+  thousand: 'thou · sand',
+  dollars: 'dol · lars',
+  hundred: 'hun · dred',
+};
+
+export function getWordSyllables(word: string): string {
+  const clean = word.toLowerCase().replace(/[^\w]/g, '');
+  if (SYLLABLE_DICTIONARY[clean]) return SYLLABLE_DICTIONARY[clean];
+  if (clean.length <= 4) return clean;
+  return clean.replace(/([aeiouy]+[^aeiouy]+)/gi, '$1·').replace(/·$/, '').replace(/·/g, ' · ');
+}
+
+interface PronunciationViewProps {
+  currentUser?: UserProfile;
+  onPronunciationCompleted?: (accuracyScore: number) => void;
+}
+
+export const PronunciationView: React.FC<PronunciationViewProps> = ({
+  currentUser,
+  onPronunciationCompleted,
+}) => {
   const [selectedAccent, setSelectedAccent] = useState<AccentType>('us');
   const [sentence, setSentence] = useState(PRACTICE_SENTENCES[0]);
   const [isRecording, setIsRecording] = useState(false);
@@ -196,6 +245,24 @@ export const PronunciationView: React.FC = () => {
   const recognitionRef = useRef<any>(null);
   const accumulatedTranscriptRef = useRef<string>('');
   const timerIntervalRef = useRef<any>(null);
+
+  // Re-fetch speech synthesis voices when available
+  useEffect(() => {
+    const handleVoicesChanged = () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.getVoices();
+      }
+    };
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = handleVoicesChanged;
+      window.speechSynthesis.getVoices();
+    }
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
 
   // Initialize Speech Recognition with continuous & interim enabled
   useEffect(() => {
@@ -377,19 +444,21 @@ export const PronunciationView: React.FC = () => {
 
     // Try server-side AI evaluation first for nuanced phonetics
     try {
-      const response = await fetch('/api/pronunciation-evaluate', {
+      const response = await fetch(`${API_BASE}/pronunciation-evaluate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           spokenText,
           targetText,
           accent,
+          userId: currentUser?.id,
         }),
       });
 
       if (response.ok) {
         const result = await response.json();
         setEvaluation(result);
+        onPronunciationCompleted?.(result.accuracyScore || 0);
         setIsEvaluating(false);
         return;
       }
@@ -400,6 +469,7 @@ export const PronunciationView: React.FC = () => {
     // Intelligent Local Phonetic Alignment
     const localResult = performLocalEvaluation(spokenText, targetText, accent);
     setEvaluation(localResult);
+    onPronunciationCompleted?.(localResult.accuracyScore || 0);
     setIsEvaluating(false);
   };
 
@@ -902,6 +972,9 @@ export const PronunciationView: React.FC = () => {
                     </div>
                     <span className="text-[10px] font-mono text-slate-500 mt-0.5">
                       {w.targetIpa}
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-700 bg-white/80 border border-slate-200/80 px-1.5 py-0.5 rounded-md mt-1 tracking-wide">
+                      {getWordSyllables(w.word)}
                     </span>
                   </div>
                 );

@@ -96,11 +96,35 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = () => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
 
-  // Filter items by category
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Active categories that contain actual cards
+  const activeCategories = useMemo(() => {
+    const counts = new Map<string, number>();
+    FLASHCARD_ITEMS.forEach((i) => counts.set(i.category, (counts.get(i.category) || 0) + 1));
+    return FLASHCARD_CATEGORIES.filter((c) => c.id === 'all' || (counts.get(c.id) || 0) > 0).map((c) => ({
+      ...c,
+      actualCount: c.id === 'all' ? FLASHCARD_ITEMS.length : counts.get(c.id) || 0,
+    }));
+  }, []);
+
+  // Filter items by category and search
   const filteredItems = useMemo(() => {
-    if (selectedCategory === 'all') return FLASHCARD_ITEMS;
-    return FLASHCARD_ITEMS.filter(item => item.category === selectedCategory);
-  }, [selectedCategory]);
+    let list = selectedCategory === 'all'
+      ? FLASHCARD_ITEMS
+      : FLASHCARD_ITEMS.filter((item) => item.category === selectedCategory);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (item) =>
+          item.term.toLowerCase().includes(q) ||
+          item.meaning.toLowerCase().includes(q) ||
+          (item.usage && item.usage.toLowerCase().includes(q)) ||
+          (item.collocation && item.collocation.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [selectedCategory, searchQuery]);
 
   // Memory Game State
   const [gameCategory, setGameCategory] = useState<FlashcardCategory>('all');
@@ -177,6 +201,8 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = () => {
   // Keyboard navigation for flashcards
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (activeTab !== 'study') return;
       if (e.key === 'ArrowRight') handleNextCard();
       if (e.key === 'ArrowLeft') handlePrevCard();
@@ -344,27 +370,37 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = () => {
         </div>
       </div>
 
-      {/* Category Selection Filter Bar */}
+      {/* Category Selection & Search Bar */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
             <Filter className="w-3.5 h-3.5 text-emerald-600" />
-            Select Vocabulary Category ({FLASHCARD_CATEGORIES.length - 1} Specializations)
+            Select Vocabulary Category ({activeCategories.length - 1} Specializations)
           </div>
-          <span className="text-xs text-slate-500">
-            Showing <strong className="text-slate-800">{filteredItems.length}</strong> terms
-          </span>
+          <div className="relative max-w-xs w-full">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentIndex(0);
+              }}
+              placeholder="Search 140 terms, meanings..."
+              className="w-full pl-8.5 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+            />
+          </div>
         </div>
 
         {/* Category Pills with horizontal scroll */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
-          {FLASHCARD_CATEGORIES.map((cat) => {
+          {activeCategories.map((cat) => {
             const isSelected = selectedCategory === cat.id;
             return (
               <button
                 key={cat.id}
                 onClick={() => handleCategoryChange(cat.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border cursor-pointer ${
                   isSelected
                     ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
                     : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
@@ -373,7 +409,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = () => {
                 {renderTermIcon(cat.iconName, "w-3.5 h-3.5")}
                 <span>{cat.shortLabel}</span>
                 <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-emerald-600 text-emerald-100' : 'bg-slate-200 text-slate-600'}`}>
-                  {cat.id === 'all' ? FLASHCARD_ITEMS.length : FLASHCARD_ITEMS.filter(i => i.category === cat.id).length}
+                  {cat.actualCount}
                 </span>
               </button>
             );

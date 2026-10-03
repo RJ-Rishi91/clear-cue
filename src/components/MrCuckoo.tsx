@@ -132,7 +132,15 @@ export const MrCuckoo: React.FC<MrCuckooProps> = ({
     window.speechSynthesis.cancel();
     playWiseChime();
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    // Strip markdown formatting (*, #, _, emojis, bullet points) before speaking
+    const cleanSpeech = text
+      .replace(/[*#_~`>]/g, '')
+      .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
+      .replace(/•|\-/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const utterance = new SpeechSynthesisUtterance(cleanSpeech);
     // Softer animated AI voice (gentle pitch, warm friendly cadence)
     utterance.pitch = 1.20;
     utterance.rate = 0.98;

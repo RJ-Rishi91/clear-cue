@@ -674,6 +674,21 @@ app.post('/api/auth/register', async (req, res) => {
         lastActiveDate: new Date().toISOString().split('T')[0],
       });
 
+      // Mirror to SQLite persistent store to satisfy relational foreign key constraints
+      try {
+        db.prepare(`
+          INSERT OR IGNORE INTO users (id, username, name, email, role, agency, avatar, password_hash)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(newUser._id.toString(), cleanUsername, name.trim(), cleanEmail, role.trim(), agency.trim(), avatar, passwordHash);
+
+        db.prepare(`
+          INSERT OR IGNORE INTO user_progress (user_id, total_checked, average_score, completed_scenario_ids, streak_days, last_active_date)
+          VALUES (?, 0, 0, '[]', 1, ?)
+        `).run(newUser._id.toString(), new Date().toISOString().split('T')[0]);
+      } catch (sqlErr) {
+        console.warn('SQLite mirror registration note:', sqlErr);
+      }
+
       const token = generateToken({ id: newUser._id.toString(), username: newUser.username });
       res.json({
         success: true,
@@ -758,6 +773,16 @@ app.post('/api/auth/login', async (req, res) => {
       user.lastActive = new Date();
       await user.save();
 
+      // Mirror to SQLite persistent store to satisfy relational foreign key constraints
+      try {
+        db.prepare(`
+          INSERT OR IGNORE INTO users (id, username, name, email, role, agency, avatar, password_hash)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(user._id.toString(), user.username, user.name, user.email || '', user.role || 'Insurance Operations Specialist (VA)', user.agency || 'CoverDirect Agency US', user.avatar || 'avatar-1', user.passwordHash);
+      } catch (sqlErr) {
+        // ignore
+      }
+
       const token = generateToken({ id: user._id.toString(), username: user.username });
       res.json({
         success: true,
@@ -823,9 +848,70 @@ app.get('/api/auth/me', authMiddleware(true), (req: AuthRequest, res) => {
 // DATABASE & USER ACCOUNT PERSISTENCE API
 // ============================================================================
 
-// List all registered user profiles
-app.get('/api/users', (req, res) => {
+// Helper to ensure an operational user row exists in SQLite for relational foreign keys
+function ensureSQLiteUser(
+  userId: string,
+  username?: string,
+  name?: string,
+  email?: string,
+  role?: string,
+  agency?: string,
+  avatar?: string
+) {
   try {
+    db.prepare(`
+      INSERT OR IGNORE INTO users (id, username, name, email, role, agency, avatar)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      userId,
+      username || ('user_' + userId.slice(-6)),
+      name || 'User',
+      email || '',
+      role || 'Insurance Operations Specialist (VA)',
+      agency || 'CoverDirect Agency US',
+      avatar || 'avatar-1'
+    );
+  } catch (err) {
+    // Ignore duplicate or constraint warnings
+  }
+}
+
+// List all registered user profiles (Dual-Engine: MongoDB Atlas + SQLite)
+app.get('/api/users', async (req, res) => {
+  try {
+    if (getIsMongoConnected()) {
+      try {
+        const mongoUsers = await MongoUser.find().sort({ lastActive: -1 }).lean();
+        if (mongoUsers && mongoUsers.length > 0) {
+          const userIds = mongoUsers.map((u: any) => u._id.toString());
+          const progressDocs = await MongoProgress.find({ userId: { $in: userIds } }).lean();
+          const progressMap = new Map(progressDocs.map((p: any) => [p.userId, p]));
+
+          const results = mongoUsers.map((u: any) => {
+            const id = u._id.toString();
+            const p: any = progressMap.get(id);
+            return {
+              id,
+              username: u.username,
+              name: u.name,
+              email: u.email,
+              role: u.role,
+              agency: u.agency,
+              avatar: u.avatar,
+              total_checked: p?.totalChecked || 0,
+              average_score: p?.averageScore || 0,
+              streak_days: p?.streakDays || 1,
+              last_active: u.lastActive,
+            };
+          });
+          res.json(results);
+          return;
+        }
+      } catch (mErr) {
+        console.warn('MongoDB users query fallback to SQLite:', mErr);
+      }
+    }
+
     const users = db.prepare(`
       SELECT u.*, 
         COALESCE(p.total_checked, 0) as total_checked,
@@ -841,24 +927,69 @@ app.get('/api/users', (req, res) => {
   }
 });
 
-// Create new user profile or switch to existing
-app.post('/api/users', (req, res) => {
+// Create new user profile or switch to existing (Dual-Engine)
+app.post('/api/users', async (req, res) => {
   try {
-    const { username, name, email = '', role = 'Insurance VA Trainee', agency = 'CoverDirect Agency', avatar = 'avatar-1' } = req.body;
+    const { username, name, email = '', role = 'Insurance VA Trainee', agency = 'CoverDirect Agency', avatar = 'avatar-1', password = 'clearcue123' } = req.body;
     if (!username || !name) {
       res.status(400).json({ error: 'Username and display name are required.' });
       return;
     }
 
     const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const cleanEmail = email.trim().toLowerCase();
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    if (getIsMongoConnected()) {
+      try {
+        let user = await MongoUser.findOne({ username: cleanUsername });
+        if (!user) {
+          user = await MongoUser.create({
+            username: cleanUsername,
+            email: cleanEmail,
+            name: name.trim(),
+            role: role.trim(),
+            agency: agency.trim(),
+            avatar,
+            passwordHash,
+          });
+
+          await MongoProgress.create({
+            userId: user._id.toString(),
+            completedScenarioIds: [],
+            streakDays: 1,
+            lastActiveDate: new Date().toISOString().split('T')[0],
+          });
+        } else {
+          user.lastActive = new Date();
+          await user.save();
+        }
+
+        // Mirror in SQLite
+        ensureSQLiteUser(user._id.toString(), cleanUsername, name, cleanEmail, role, agency, avatar);
+
+        res.json({
+          id: user._id.toString(),
+          username: user.username,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          agency: user.agency,
+          avatar: user.avatar,
+        });
+        return;
+      } catch (mErr) {
+        console.warn('MongoDB user creation fallback to SQLite:', mErr);
+      }
+    }
+
     let user = db.prepare('SELECT * FROM users WHERE username = ?').get(cleanUsername) as any;
-    
     if (!user) {
       const id = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
       db.prepare(`
-        INSERT INTO users (id, username, name, email, role, agency, avatar)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(id, cleanUsername, name.trim(), email.trim(), role.trim(), agency.trim(), avatar);
+        INSERT INTO users (id, username, name, email, role, agency, avatar, password_hash)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, cleanUsername, name.trim(), cleanEmail, role.trim(), agency.trim(), avatar, passwordHash);
 
       db.prepare(`
         INSERT INTO user_progress (user_id, total_checked, average_score, completed_scenario_ids, streak_days, last_active_date)
@@ -876,10 +1007,31 @@ app.post('/api/users', (req, res) => {
   }
 });
 
-// Get user profile
-app.get('/api/users/:userId/profile', (req, res) => {
+// Get user profile (Dual-Engine)
+app.get('/api/users/:userId/profile', async (req, res) => {
   try {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.userId);
+    const userId = req.params.userId;
+    if (getIsMongoConnected()) {
+      try {
+        const doc = await MongoUser.findById(userId) || await MongoUser.findOne({ username: userId });
+        if (doc) {
+          res.json({
+            id: doc._id.toString(),
+            username: doc.username,
+            name: doc.name,
+            email: doc.email,
+            role: doc.role,
+            agency: doc.agency,
+            avatar: doc.avatar,
+          });
+          return;
+        }
+      } catch {
+        // Fallback to SQLite
+      }
+    }
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
     if (!user) {
       res.status(404).json({ error: 'User not found' });
       return;
@@ -890,10 +1042,27 @@ app.get('/api/users/:userId/profile', (req, res) => {
   }
 });
 
-// Update user profile
-app.put('/api/users/:userId/profile', (req, res) => {
+// Update user profile (Dual-Engine)
+app.put('/api/users/:userId/profile', async (req, res) => {
   try {
+    const userId = req.params.userId;
     const { name, email, role, agency, avatar } = req.body;
+
+    if (getIsMongoConnected()) {
+      try {
+        await MongoUser.findByIdAndUpdate(userId, {
+          ...(name && { name: name.trim() }),
+          ...(email !== undefined && { email: email.trim() }),
+          ...(role && { role: role.trim() }),
+          ...(agency && { agency: agency.trim() }),
+          ...(avatar && { avatar }),
+          lastActive: new Date(),
+        });
+      } catch (mErr) {
+        console.warn('Mongo profile update note:', mErr);
+      }
+    }
+
     db.prepare(`
       UPDATE users 
       SET name = COALESCE(?, name),
@@ -903,19 +1072,79 @@ app.put('/api/users/:userId/profile', (req, res) => {
           avatar = COALESCE(?, avatar),
           last_active = datetime('now')
       WHERE id = ?
-    `).run(name, email, role, agency, avatar, req.params.userId);
+    `).run(name, email, role, agency, avatar, userId);
 
-    const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.userId);
+    const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Get consolidated progress for active user
-app.get('/api/users/:userId/progress', (req, res) => {
+// Get consolidated progress for active user (Dual-Engine: MongoDB Atlas + SQLite)
+app.get('/api/users/:userId/progress', async (req, res) => {
   try {
     const userId = req.params.userId;
+
+    if (getIsMongoConnected()) {
+      try {
+        let progressDoc = await MongoProgress.findOne({ userId }).lean() as any;
+        if (!progressDoc) {
+          progressDoc = await MongoProgress.create({
+            userId,
+            completedScenarioIds: [],
+            streakDays: 1,
+            lastActiveDate: new Date().toISOString().split('T')[0],
+          });
+        }
+
+        const mongoMessages = await MongoCheckedMessage.find({ userId }).sort({ createdAt: -1 }).limit(50).lean();
+        const mongoMockCalls = await MongoMockCall.find({ userId }).sort({ createdAt: -1 }).limit(30).lean();
+
+        res.json({
+          totalChecked: progressDoc.totalChecked || 0,
+          averageScore: progressDoc.averageScore || 0,
+          flashcardsMastered: progressDoc.flashcardsMastered || 0,
+          memoryMatchHighScore: progressDoc.memoryMatchHighScore || 0,
+          pronunciationChecksCount: progressDoc.pronunciationChecksCount || 0,
+          pronunciationAvgAccuracy: progressDoc.pronunciationAvgAccuracy || 0,
+          streakDays: progressDoc.streakDays || 1,
+          lastActiveDate: progressDoc.lastActiveDate || new Date().toISOString().split('T')[0],
+          completedScenarioIds: progressDoc.completedScenarioIds || [],
+          history: mongoMessages.map((m: any) => ({
+            id: m.id,
+            timestamp: m.timestamp,
+            audience: m.audience,
+            channel: m.channel,
+            originalSnippet: m.originalSnippet,
+            overallScore: m.overallScore,
+            strongestC: m.strongestC,
+            growthC: m.growthC,
+            fullData: m.fullData,
+          })),
+          mockCallHistory: mongoMockCalls.map((m: any) => ({
+            id: m.id,
+            timestamp: m.timestamp,
+            character: m.character,
+            gender: m.gender,
+            accent: m.accent,
+            tone: m.tone,
+            callType: m.callType,
+            topic: m.topic,
+            topicLabel: m.topicLabel,
+            durationSeconds: m.durationSeconds,
+            overallScore: m.overallScore,
+            transcript: m.transcript || [],
+            evaluation: m.evaluation || {},
+          })),
+        });
+        return;
+      } catch (mErr) {
+        console.warn('MongoDB progress fetch fallback to SQLite:', mErr);
+      }
+    }
+
+    // SQLite persistent fallback
     let progressRow = db.prepare('SELECT * FROM user_progress WHERE user_id = ?').get(userId) as any;
     if (!progressRow) {
       db.prepare(`
@@ -933,6 +1162,11 @@ app.get('/api/users/:userId/progress', (req, res) => {
       ORDER BY datetime(created_at) DESC
       LIMIT 50
     `).all(userId) as any[];
+
+    const formattedMessages = messages.map((m) => ({
+      ...m,
+      fullData: parseJsonSafely(m.fullData) || null,
+    }));
 
     const mockCalls = db.prepare(`
       SELECT id, timestamp, character, gender, accent, tone, call_type as callType,
@@ -967,7 +1201,7 @@ app.get('/api/users/:userId/progress', (req, res) => {
       streakDays: progressRow.streak_days || 1,
       lastActiveDate: progressRow.last_active_date || new Date().toISOString().split('T')[0],
       completedScenarioIds: completedScenarios,
-      history: messages,
+      history: formattedMessages,
       mockCallHistory: formattedMockCalls,
     };
 
@@ -977,8 +1211,8 @@ app.get('/api/users/:userId/progress', (req, res) => {
   }
 });
 
-// Update progress metrics (flashcards, high score, streak)
-app.put('/api/users/:userId/progress', (req, res) => {
+// Update progress metrics (flashcards, high score, streak) - Dual-Engine
+app.put('/api/users/:userId/progress', async (req, res) => {
   try {
     const userId = req.params.userId;
     const { 
@@ -990,6 +1224,29 @@ app.put('/api/users/:userId/progress', (req, res) => {
       streakDays 
     } = req.body;
 
+    // 1. Update MongoDB Atlas
+    if (getIsMongoConnected()) {
+      try {
+        await MongoProgress.findOneAndUpdate(
+          { userId },
+          {
+            ...(flashcardsMastered !== undefined && { flashcardsMastered }),
+            ...(memoryMatchHighScore !== undefined && { memoryMatchHighScore }),
+            ...(pronunciationChecksCount !== undefined && { pronunciationChecksCount }),
+            ...(pronunciationAvgAccuracy !== undefined && { pronunciationAvgAccuracy }),
+            ...(completedScenarioIds !== undefined && { completedScenarioIds }),
+            ...(streakDays !== undefined && { streakDays }),
+            updatedAt: new Date(),
+          },
+          { upsert: true }
+        );
+      } catch (mErr) {
+        console.warn('MongoDB progress update error:', mErr);
+      }
+    }
+
+    // 2. Update SQLite
+    ensureSQLiteUser(userId);
     db.prepare(`
       UPDATE user_progress
       SET flashcards_mastered = COALESCE(?, flashcards_mastered),
@@ -1016,8 +1273,8 @@ app.put('/api/users/:userId/progress', (req, res) => {
   }
 });
 
-// Save checked message analysis record
-app.post('/api/users/:userId/messages', (req, res) => {
+// Save checked message analysis record (Dual-Engine: MongoDB Atlas + SQLite)
+app.post('/api/users/:userId/messages', async (req, res) => {
   try {
     const userId = req.params.userId;
     const {
@@ -1032,6 +1289,9 @@ app.post('/api/users/:userId/messages', (req, res) => {
       fullData,
     } = req.body;
 
+    ensureSQLiteUser(userId);
+
+    // 1. Save to SQLite
     db.prepare(`
       INSERT INTO checked_messages (
         id, user_id, timestamp, audience, channel, original_snippet,
@@ -1050,7 +1310,6 @@ app.post('/api/users/:userId/messages', (req, res) => {
       fullData ? JSON.stringify(fullData) : null
     );
 
-    // Recompute totalChecked and averageScore
     const stats = db.prepare(`
       SELECT COUNT(*) as count, AVG(overall_score) as avgScore
       FROM checked_messages
@@ -1065,14 +1324,48 @@ app.post('/api/users/:userId/messages', (req, res) => {
       WHERE user_id = ?
     `).run(stats.count, Math.round(stats.avgScore || 0), userId);
 
+    // 2. Save to MongoDB Atlas
+    if (getIsMongoConnected()) {
+      try {
+        await MongoCheckedMessage.create({
+          id,
+          userId,
+          timestamp,
+          audience: audience || 'agency_owner',
+          channel: channel || 'email',
+          originalSnippet: originalSnippet || '',
+          overallScore: overallScore || 0,
+          strongestC: strongestC || 'courteous',
+          growthC: growthC || 'concrete',
+          fullData: fullData || null,
+        });
+
+        const mongoAgg = await MongoCheckedMessage.aggregate([
+          { $match: { userId } },
+          { $group: { _id: null, count: { $sum: 1 }, avgScore: { $avg: '$overallScore' } } },
+        ]);
+
+        const count = mongoAgg[0]?.count || stats.count;
+        const avgScore = Math.round(mongoAgg[0]?.avgScore || stats.avgScore || 0);
+
+        await MongoProgress.findOneAndUpdate(
+          { userId },
+          { totalChecked: count, averageScore: avgScore, updatedAt: new Date() },
+          { upsert: true }
+        );
+      } catch (mErr) {
+        console.warn('MongoDB checked message save note:', mErr);
+      }
+    }
+
     res.json({ success: true, id, totalChecked: stats.count, averageScore: Math.round(stats.avgScore || 0) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Save mock call record
-app.post('/api/users/:userId/mock-calls', (req, res) => {
+// Save mock call record (Dual-Engine: MongoDB Atlas + SQLite)
+app.post('/api/users/:userId/mock-calls', async (req, res) => {
   try {
     const userId = req.params.userId;
     const {
@@ -1091,6 +1384,9 @@ app.post('/api/users/:userId/mock-calls', (req, res) => {
       evaluation = {},
     } = req.body;
 
+    ensureSQLiteUser(userId);
+
+    // 1. Save to SQLite
     db.prepare(`
       INSERT INTO mock_calls (
         id, user_id, timestamp, character, gender, accent, tone, call_type,
@@ -1113,16 +1409,42 @@ app.post('/api/users/:userId/mock-calls', (req, res) => {
       JSON.stringify(evaluation)
     );
 
+    // 2. Save to MongoDB Atlas
+    if (getIsMongoConnected()) {
+      try {
+        await MongoMockCall.create({
+          id,
+          userId,
+          timestamp,
+          character: character || 'insured',
+          gender: gender || 'female',
+          accent: accent || 'us',
+          tone: tone || 'normal',
+          callType: callType || 'asking_update',
+          topic: topic || 'status_update',
+          topicLabel: topicLabel || 'Status Update',
+          durationSeconds,
+          overallScore,
+          transcript,
+          evaluation,
+        });
+      } catch (mErr) {
+        console.warn('MongoDB mock call save note:', mErr);
+      }
+    }
+
     res.json({ success: true, id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Reset user progress
-app.delete('/api/users/:userId/progress', (req, res) => {
+// Reset user progress (Dual-Engine: MongoDB Atlas + SQLite)
+app.delete('/api/users/:userId/progress', async (req, res) => {
   try {
     const userId = req.params.userId;
+
+    // 1. Reset SQLite
     db.prepare('DELETE FROM checked_messages WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM mock_calls WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM pronunciation_records WHERE user_id = ?').run(userId);
@@ -1139,6 +1461,32 @@ app.delete('/api/users/:userId/progress', (req, res) => {
           updated_at = datetime('now')
       WHERE user_id = ?
     `).run(userId);
+
+    // 2. Reset MongoDB Atlas
+    if (getIsMongoConnected()) {
+      try {
+        await MongoCheckedMessage.deleteMany({ userId });
+        await MongoMockCall.deleteMany({ userId });
+        await MongoPronunciation.deleteMany({ userId });
+        await MongoProgress.findOneAndUpdate(
+          { userId },
+          {
+            totalChecked: 0,
+            averageScore: 0,
+            flashcardsMastered: 0,
+            memoryMatchHighScore: 0,
+            pronunciationChecksCount: 0,
+            pronunciationAvgAccuracy: 0,
+            completedScenarioIds: [],
+            streakDays: 1,
+            updatedAt: new Date(),
+          },
+          { upsert: true }
+        );
+      } catch (mErr) {
+        console.warn('MongoDB progress reset note:', mErr);
+      }
+    }
 
     res.json({ success: true });
   } catch (err: any) {
@@ -1312,8 +1660,9 @@ Return a comprehensive JSON object adhering to the schema. Your improvedMessage 
 
 // API Route: Draft an Email (Mail Writer Feature)
 app.post('/api/draft-email', async (req, res) => {
+  const rawTopic = req.body.topic || req.body.prompt || req.body.situation || '';
+  const topic = typeof rawTopic === 'string' ? rawTopic.trim() : '';
   const {
-    topic,
     tone = 'professional',
     purpose = 'update',
     audience = 'agency_owner',
@@ -1321,7 +1670,7 @@ app.post('/api/draft-email', async (req, res) => {
     contextDetails = '',
   } = req.body;
 
-  if (!topic || typeof topic !== 'string' || topic.trim().length === 0) {
+  if (!topic || topic.length === 0) {
     res.status(400).json({ error: 'Topic / situation description is required.' });
     return;
   }
@@ -1454,12 +1803,13 @@ function evaluatePracticeLocally(userResponse: string, scenarioGoal?: string, au
   if (hasNextStep) score += 5;
   if (isPolite) score += 5;
   if (hasReason) score += 5;
+  if (hasDirectCommand && !startsWithPoliteRequest) score -= 18;
   if (hasBlaming) score -= 15;
   if (hasVagueWords) score -= 12;
   if (words.length >= 25 && words.length <= 95) score += 4;
   if (words.length < 10) score -= 20;
 
-  score = Math.min(98, Math.max(50, score));
+  score = Math.min(98, Math.max(35, score));
 
   const strengths: string[] = [];
   const areasForImprovement: string[] = [];
@@ -1501,9 +1851,11 @@ function evaluatePracticeLocally(userResponse: string, scenarioGoal?: string, au
 
 // API Route: Evaluate practice response
 app.post('/api/evaluate-practice', async (req, res) => {
-  const { scenarioId, scenarioTitle, scenarioGoal, userResponse, audience } = req.body;
+  const rawResponse = req.body.userResponse || req.body.userDraft || req.body.response || '';
+  const userResponse = typeof rawResponse === 'string' ? rawResponse.trim() : '';
+  const { scenarioId, scenarioTitle, scenarioGoal, audience } = req.body;
 
-  if (!userResponse || typeof userResponse !== 'string') {
+  if (!userResponse || userResponse.length === 0) {
     res.status(400).json({ error: 'User response is required.' });
     return;
   }
@@ -1732,9 +2084,93 @@ function evaluatePronunciationLocally(
   };
 }
 
+// Helper to save pronunciation records across Dual-Engine (SQLite + MongoDB Atlas)
+async function savePronunciationRecord(
+  userId: string | undefined,
+  targetText: string,
+  spokenText: string,
+  accent: string,
+  evalResult: any
+) {
+  if (!userId) return;
+  const accuracyScore = evalResult.accuracyScore || 0;
+
+  // 1. SQLite persistence
+  try {
+    ensureSQLiteUser(userId);
+    db.prepare(`
+      INSERT INTO pronunciation_records (id, user_id, timestamp, target_text, recognized_text, accent, accuracy_score, feedback)
+      VALUES (?, ?, datetime('now'), ?, ?, ?, ?, ?)
+    `).run(
+      'pr_' + Date.now(),
+      userId,
+      targetText,
+      spokenText,
+      accent,
+      accuracyScore,
+      JSON.stringify(evalResult)
+    );
+
+    const stats = db.prepare(`
+      SELECT COUNT(*) as count, AVG(accuracy_score) as avgAccuracy
+      FROM pronunciation_records
+      WHERE user_id = ?
+    `).get(userId) as { count: number; avgAccuracy: number };
+
+    if (stats) {
+      db.prepare(`
+        UPDATE user_progress
+        SET pronunciation_checks_count = ?,
+            pronunciation_avg_accuracy = ?,
+            updated_at = datetime('now')
+        WHERE user_id = ?
+      `).run(stats.count, Math.round(stats.avgAccuracy || 0), userId);
+    }
+  } catch (e) {
+    console.warn('Could not record pronunciation to SQLite:', e);
+  }
+
+  // 2. MongoDB Atlas persistence
+  if (getIsMongoConnected()) {
+    try {
+      await MongoPronunciation.create({
+        id: 'pr_' + Date.now(),
+        userId,
+        timestamp: new Date().toISOString(),
+        targetText,
+        recognizedText: spokenText,
+        accent,
+        accuracyScore,
+        feedback: evalResult,
+      });
+
+      const records = await MongoPronunciation.find({ userId }).select('accuracyScore').lean();
+      const count = records.length;
+      const sum = records.reduce((acc, r: any) => acc + (r.accuracyScore || 0), 0);
+      const avg = count > 0 ? Math.round(sum / count) : 0;
+
+      await MongoProgress.findOneAndUpdate(
+        { userId },
+        {
+          pronunciationChecksCount: count,
+          pronunciationAvgAccuracy: avg,
+          updatedAt: new Date(),
+        },
+        { upsert: true }
+      );
+    } catch (mErr) {
+      console.warn('Could not record pronunciation to MongoDB:', mErr);
+    }
+  }
+}
+
 // API Route: Evaluate Voice & Accent Pronunciation (Gemini with High-Precision Local Fallback)
 app.post('/api/pronunciation-evaluate', async (req, res) => {
-  const { spokenText, targetText, accent = 'us', userId } = req.body;
+  const rawSpoken = req.body.spokenText || req.body.text || '';
+  const spokenText = typeof rawSpoken === 'string' ? rawSpoken.trim() : '';
+  const rawTarget = req.body.targetText || req.body.term || req.body.word || '';
+  const targetText = typeof rawTarget === 'string' ? rawTarget.trim() : '';
+  const { accent = 'us', userId } = req.body;
 
   if (!spokenText || !targetText) {
     res.status(400).json({ error: 'spokenText and targetText are required.' });
@@ -1746,27 +2182,7 @@ app.post('/api/pronunciation-evaluate', async (req, res) => {
 
   if (!ai) {
     const localResult = evaluatePronunciationLocally(spokenText, targetText, accent as any);
-    
-    // Save to database if userId provided
-    if (userId) {
-      try {
-        db.prepare(`
-          INSERT INTO pronunciation_records (id, user_id, timestamp, target_text, recognized_text, accent, accuracy_score, feedback)
-          VALUES (?, ?, datetime('now'), ?, ?, ?, ?, ?)
-        `).run(
-          'pr_' + Date.now(),
-          userId,
-          targetText,
-          spokenText,
-          accent,
-          localResult.accuracyScore,
-          JSON.stringify(localResult)
-        );
-      } catch (e) {
-        console.warn('Could not record pronunciation to SQLite:', e);
-      }
-    }
-
+    await savePronunciationRecord(userId, targetText, spokenText, accent, localResult);
     res.json(localResult);
     return;
   }
@@ -1823,16 +2239,19 @@ Return JSON strictly evaluating word-by-word accuracy, phonetic tips, and specif
 
   try {
     const { data } = await callGeminiWithFallback(ai, prompt, schema);
-    res.json({
+    const fullResult = {
       ...data,
       recognizedText: spokenText,
       targetText,
       accent,
       engine: 'ClearCue Gemini Cloud',
-    });
+    };
+    await savePronunciationRecord(userId, targetText, spokenText, accent, fullResult);
+    res.json(fullResult);
   } catch (err: any) {
     console.warn('Gemini pronunciation eval fallback to Local AI:', err?.message || err);
     const localResult = evaluatePronunciationLocally(spokenText, targetText, accent as any);
+    await savePronunciationRecord(userId, targetText, spokenText, accent, localResult);
     res.json(localResult);
   }
 });
@@ -1888,9 +2307,11 @@ function answerCuckooLocally(question: string, context: string = ''): string {
 
 // API Route: Professor Cuckoo mascot instant coaching assistant
 app.post('/api/cuckoo-coach', async (req, res) => {
-  const { question, context = '' } = req.body;
+  const rawQ = req.body.question || req.body.userQuery || req.body.query || '';
+  const question = typeof rawQ === 'string' ? rawQ.trim() : '';
+  const { context = '' } = req.body;
 
-  if (!question || typeof question !== 'string') {
+  if (!question || question.length === 0) {
     res.status(400).json({ error: 'Question is required.' });
     return;
   }
@@ -2268,6 +2689,9 @@ function generateLocalMockCallTurn(
 
 // API Route: Dynamic Mock Call Turn Engine (Gemini with Scenario-Aware Fallback)
 app.post('/api/mock-call-turn', async (req, res) => {
+  const rawUserMessage = req.body.latestUserMessage || req.body.userMessage || req.body.message || '';
+  const latestUserMessage = typeof rawUserMessage === 'string' ? rawUserMessage.trim() : '';
+
   const {
     scenarioId,
     scenarioData = {},
@@ -2278,10 +2702,9 @@ app.post('/api/mock-call-turn', async (req, res) => {
     aiObjective = '',
     expectedBehaviours = [],
     transcript = [],
-    latestUserMessage = '',
   } = req.body;
 
-  if (!latestUserMessage || typeof latestUserMessage !== 'string') {
+  if (!latestUserMessage || latestUserMessage.length === 0) {
     res.status(400).json({ error: 'latestUserMessage is required.' });
     return;
   }

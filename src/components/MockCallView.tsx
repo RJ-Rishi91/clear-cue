@@ -15,6 +15,7 @@ import {
 import { MOCK_CALL_SCENARIOS } from '../data/mockCallScenarios';
 import { MrCuckoo } from './MrCuckoo';
 import { getMockCallToneConfig } from '../utils/voiceUtils';
+import { API_BASE, getAuthHeaders } from '../utils/api';
 import { 
   PhoneCall, 
   PhoneOff, 
@@ -138,12 +139,12 @@ const TOPICS_CONFIG: TopicConfig[] = [
 ];
 
 const CURRICULUM_CATEGORIES = [
-  { id: 'all', label: 'All 13 Scenarios' },
+  { id: 'all', label: `All Scenarios (${MOCK_CALL_SCENARIOS.length})` },
   { id: 'task_assignment', label: '1. Task-Assigning' },
   { id: 'weekly_update', label: '2. Weekly Updates' },
-  { id: 'feedback_handling', label: '3. Feedback Calls' },
-  { id: 'carrier_inquiry', label: '4. Carrier Calls' },
-  { id: 'insured_direct', label: '5. Insured Direct' },
+  { id: 'feedback', label: '3. Feedback Calls' },
+  { id: 'carrier', label: '4. Carrier Calls' },
+  { id: 'insured', label: '5. Insured Direct' },
   { id: 'cross_character', label: '6. Multi-Task Cycles' },
 ];
 
@@ -349,9 +350,9 @@ export const MockCallView: React.FC<MockCallViewProps> = ({
     setIsGeneratingReply(true);
 
     try {
-      const response = await fetch('/api/mock-call-turn', {
+      const response = await fetch(`${API_BASE}/mock-call-turn`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           scenarioId: selectionMode === 'curriculum' ? currentScenario.id : selectedTopic,
           scenarioData: selectionMode === 'curriculum' ? currentScenario.scenarioData : { topic: currentTopicConfig.title, description: currentTopicConfig.description },
@@ -439,9 +440,9 @@ export const MockCallView: React.FC<MockCallViewProps> = ({
     setIsEvaluating(true);
 
     try {
-      const response = await fetch('/api/mock-call-evaluate', {
+      const response = await fetch(`${API_BASE}/mock-call-evaluate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           scenarioId: selectionMode === 'curriculum' ? currentScenario.id : selectedTopic,
           scenarioTitle: selectionMode === 'curriculum' ? currentScenario.title : currentTopicConfig.title,
@@ -919,6 +920,25 @@ export const MockCallView: React.FC<MockCallViewProps> = ({
                       }`}
                     >
                       <span className="text-base mr-1">{acc.flag}</span> {acc.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  {[
+                    { id: 'female', label: 'Female Voice' },
+                    { id: 'male', label: 'Male Voice' },
+                  ].map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => setGender(g.id as MockCallGender)}
+                      className={`p-2 rounded-xl border text-center text-xs font-semibold transition-all ${
+                        gender === g.id
+                          ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-1 ring-emerald-500'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-white'
+                      }`}
+                    >
+                      {g.label}
                     </button>
                   ))}
                 </div>

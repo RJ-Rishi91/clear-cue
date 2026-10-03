@@ -1,9 +1,9 @@
 import { UserProfile, UserProgressData, CheckedMessageRecord, MockCallRecord } from '../types';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL as string | undefined) || '';
-export const API_BASE = rawApiUrl.trim().replace(/\/+$/, '')
-  ? `${rawApiUrl.trim().replace(/\/+$/, '')}/api`
-  : '/api';
+const trimmedApiUrl = rawApiUrl.trim().replace(/\/+$/, '');
+const noTrailingApi = trimmedApiUrl.replace(/\/api$/i, '');
+export const API_BASE = noTrailingApi ? `${noTrailingApi}/api` : '/api';
 
 export const AUTH_TOKEN_KEY = 'clearcue_auth_token';
 
@@ -151,6 +151,7 @@ export async function fetchUsers(): Promise<UserProfile[]> {
 export async function createUser(data: {
   username: string;
   name: string;
+  password?: string;
   email?: string;
   role?: string;
   agency?: string;

@@ -17,13 +17,14 @@ import {
   Send,
   Sparkles
 } from 'lucide-react';
-import { fetchUsers, createUser, updateUserProfile } from '../utils/api';
+import { fetchUsers, createUser, updateUserProfile, fetchBackendStatus, BackendStatus } from '../utils/api';
 
 interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: UserProfile;
   onUserChanged: (user: UserProfile) => void;
+  onOpenSignup?: () => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -31,12 +32,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   currentUser,
   onUserChanged,
+  onOpenSignup,
 }) => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
 
   // Edit form state
   const [editName, setEditName] = useState(currentUser.name);
@@ -47,12 +50,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   // New user form state
   const [newName, setNewName] = useState('');
   const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('clearcue123');
   const [newRole, setNewRole] = useState('Insurance VA Trainee');
   const [newAgency, setNewAgency] = useState('CoverDirect Agency');
 
   useEffect(() => {
     if (isOpen) {
       loadUsers();
+      fetchBackendStatus().then(setBackendStatus).catch(() => {});
       setEditName(currentUser.name);
       setEditRole(currentUser.role);
       setEditAgency(currentUser.agency);
@@ -110,11 +115,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         name: newName.trim(),
         role: newRole.trim(),
         agency: newAgency.trim(),
+        password: newPassword.trim() || 'clearcue123',
       });
       onUserChanged(created);
       setIsCreating(false);
       setNewName('');
       setNewUsername('');
+      setNewPassword('clearcue123');
       await loadUsers();
     } catch (err: any) {
       setError(err.message || 'Failed to create new user profile');
@@ -145,7 +152,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <h2 className="text-lg font-serif font-bold tracking-tight">User Account & AI Engine Settings</h2>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="inline-flex items-center gap-1 text-[11px] text-emerald-300 font-medium">
-                  <Database className="w-3 h-3 text-emerald-400" /> SQLite Store
+                  <Database className="w-3 h-3 text-emerald-400" />
+                  {backendStatus?.database || 'SQLite Local Persistent Store'}
                 </span>
                 <span className="text-slate-400">•</span>
                 <span className="inline-flex items-center gap-1 text-[11px] text-emerald-200 font-medium">
@@ -389,6 +397,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white"
                   />
                 </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Account Password</label>
+                  <input
+                    type="password"
+                    placeholder="Min 6 characters (default: clearcue123)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white"
+                  />
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -409,7 +429,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </form>
           )}
 
-          {/* All Registered Profiles on SQLite */}
+          {/* All Registered Profiles on SQLite / MongoDB */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
@@ -417,12 +437,25 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 Profiles in Database ({users.length})
               </h4>
               {!isCreating && (
-                <button
-                  onClick={() => setIsCreating(true)}
-                  className="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5" /> + New User
-                </button>
+                <div className="flex items-center gap-2">
+                  {onOpenSignup && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onOpenSignup();
+                      }}
+                      className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" /> Full Registration
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsCreating(true)}
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" /> + New User
+                  </button>
+                </div>
               )}
             </div>
 
@@ -480,7 +513,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* Modal Footer */}
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between">
           <p className="text-[11px] text-slate-500">
-            Training metrics, check histories & mock call evaluations sync to SQLite automatically.
+            Training metrics, check histories & mock call evaluations sync to {backendStatus?.database || 'database'} automatically.
           </p>
           <button
             onClick={onClose}

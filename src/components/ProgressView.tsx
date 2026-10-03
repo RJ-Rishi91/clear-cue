@@ -25,7 +25,8 @@ import {
   User,
   ArrowRight,
   Check,
-  Database
+  Database,
+  X
 } from 'lucide-react';
 import { UserProfile } from '../types';
 
@@ -46,6 +47,8 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
 }) => {
   const [traineeName, setTraineeName] = useState(currentUser?.name || 'Sarah Jenkins');
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [selectedMockCall, setSelectedMockCall] = useState<MockCallRecord | null>(null);
+  const [selectedCheckedMsg, setSelectedCheckedMsg] = useState<CheckedMessageRecord | null>(null);
 
   React.useEffect(() => {
     if (currentUser?.name) {
@@ -185,6 +188,11 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
                   Manage Account
                 </button>
               )}
+              {/* Daily Streak Badge */}
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold shadow-xs">
+                <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                <span>{progress.streakDays || 1} Day Streak</span>
+              </div>
             </div>
             <p className="text-xs text-slate-500">
               Evaluated across 7 Cs of Communication, 6 Golden Rules, Voice & Accent, and Insurance Workflows.
@@ -213,7 +221,7 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
               {totalChecks}
             </div>
             <div className="text-[11px] text-slate-500">
-              Avg Score: <strong className="text-emerald-700">{avgMessageScore}%</strong>
+              Avg Score: <strong className="text-emerald-700">{avgMessageScore > 0 ? `${avgMessageScore}%` : '—'}</strong>
             </div>
           </div>
 
@@ -227,7 +235,7 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
               {totalMockCalls}
             </div>
             <div className="text-[11px] text-slate-500">
-              Avg Mastery: <strong className="text-emerald-700">{avgMockCallScore}%</strong>
+              Avg Mastery: <strong className="text-emerald-700">{avgMockCallScore > 0 ? `${avgMockCallScore}%` : '—'}</strong>
             </div>
           </div>
 
@@ -238,10 +246,10 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
               <Gamepad2 className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="text-2xl sm:text-3xl font-bold text-slate-900 font-mono">
-              {flashcardsMastered || (totalChecks > 0 ? 32 : 12)}
+              {flashcardsMastered}
             </div>
             <div className="text-[11px] text-slate-500">
-              Memory Match Score: <strong className="text-emerald-700">{memoryHighScore || 92}%</strong>
+              Memory Match Score: <strong className="text-emerald-700">{memoryHighScore > 0 ? `${memoryHighScore}%` : '—'}</strong>
             </div>
           </div>
 
@@ -252,10 +260,10 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
               <Headphones className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="text-2xl sm:text-3xl font-bold text-slate-900 font-mono">
-              {progress.pronunciationChecksCount || 3}
+              {progress.pronunciationChecksCount || 0}
             </div>
             <div className="text-[11px] text-slate-500">
-              Avg Accuracy: <strong className="text-emerald-700">{progress.pronunciationAvgAccuracy || 88}%</strong>
+              Avg Accuracy: <strong className="text-emerald-700">{progress.pronunciationAvgAccuracy ? `${progress.pronunciationAvgAccuracy}%` : '—'}</strong>
             </div>
           </div>
         </div>
@@ -421,13 +429,90 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
         </div>
       </div>
 
+      {/* RECENT CHECKED MESSAGES */}
+      {progress.history && progress.history.length > 0 && (
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-emerald-700" />
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Recent Message Analyses
+                </h3>
+                <p className="text-[11px] text-slate-500">Click any message to review coaching breakdown or re-test</p>
+              </div>
+            </div>
+            <span className="text-xs text-slate-500 font-mono">
+              {progress.history.length} Analyzed Messages
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {progress.history.slice(0, 5).map((msg) => (
+              <div
+                key={msg.id}
+                onClick={() => setSelectedCheckedMsg(msg)}
+                className="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/20 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+              >
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-slate-900 capitalize">
+                      {msg.audience.replace(/_/g, ' ')}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-white border text-[10px] text-slate-600 capitalize">
+                      {msg.channel}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {msg.timestamp}
+                    </span>
+                  </div>
+                  <p className="text-slate-700 font-mono text-[11px] truncate">
+                    "{msg.originalSnippet}"
+                  </p>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                    <span>Strongest: <strong className="text-emerald-700 capitalize">{msg.strongestC}</strong></span>
+                    <span>•</span>
+                    <span>Growth: <strong className="text-amber-700 capitalize">{msg.growthC}</strong></span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="text-right">
+                    <div className="font-extrabold text-base text-emerald-700 font-mono">
+                      {msg.overallScore}%
+                    </div>
+                    <div className="text-[10px] text-slate-400">7 Cs Score</div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNavigate('check', { prefillMessage: msg.originalSnippet, audience: msg.audience });
+                    }}
+                    className="p-2 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 text-emerald-700 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                    title="Re-check this message in Message Checker"
+                  >
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* RECENT MOCK CALLS LOG */}
       {mockCalls.length > 0 && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-base font-bold text-slate-900">
-              Recent AI Mock Call Sessions
-            </h3>
+            <div className="flex items-center gap-2">
+              <PhoneCall className="w-5 h-5 text-emerald-700" />
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Recent AI Mock Call Sessions
+                </h3>
+                <p className="text-[11px] text-slate-500">Click any session to view scorecard, tips, and transcript</p>
+              </div>
+            </div>
             <span className="text-xs text-slate-500 font-mono">
               {mockCalls.length} Recorded Calls
             </span>
@@ -437,7 +522,8 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
             {mockCalls.slice(0, 5).map((call) => (
               <div
                 key={call.id}
-                className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                onClick={() => setSelectedMockCall(call)}
+                className="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/20 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -460,9 +546,202 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
                     </div>
                     <div className="text-[10px] text-slate-400">7 Cs Score</div>
                   </div>
+                  <div className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400">
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </div>
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Mock Call Detail Inspection */}
+      {selectedMockCall && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div 
+            className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                  Mock Call Performance Audit
+                </span>
+                <h3 className="text-lg font-bold text-slate-900 mt-1 capitalize">
+                  {selectedMockCall.character} ({selectedMockCall.topicLabel})
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Tone: {selectedMockCall.tone} • Accent: {selectedMockCall.accent.toUpperCase()} • Duration: {Math.floor(selectedMockCall.durationSeconds / 60)}m {selectedMockCall.durationSeconds % 60}s
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedMockCall(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scorecard Hero */}
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-between">
+              <div>
+                <div className="text-xs text-emerald-800 font-semibold">Overall Communication Score</div>
+                <div className="text-2xl font-black text-emerald-900 font-mono">{selectedMockCall.overallScore}%</div>
+              </div>
+              <div className="text-right">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-white text-emerald-800 border border-emerald-200">
+                  {selectedMockCall.evaluation?.grade || 'Proficient'}
+                </span>
+              </div>
+            </div>
+
+            {/* Call Management Tips (Agent 3 & Agent 5 finding fix) */}
+            {selectedMockCall.evaluation?.callManagementTips && selectedMockCall.evaluation.callManagementTips.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Call Management Coaching Tips</h4>
+                <div className="space-y-1.5">
+                  {selectedMockCall.evaluation.callManagementTips.map((tip: string, idx: number) => (
+                    <div key={idx} className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <span>{tip}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Golden Rules Checklist */}
+            {selectedMockCall.evaluation?.goldenRulesEvaluation && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">6 Golden Rules Verification</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {Object.entries(selectedMockCall.evaluation.goldenRulesEvaluation).map(([ruleKey, passed]: [string, any]) => (
+                    <div key={ruleKey} className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                      <span className="capitalize text-slate-700 font-medium">
+                        {ruleKey.replace(/([A-Z])/g, ' $1')}
+                      </span>
+                      {passed ? (
+                        <Check className="w-4 h-4 text-emerald-600 font-bold" />
+                      ) : (
+                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">Needs Polish</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Full Transcript */}
+            {selectedMockCall.transcript && selectedMockCall.transcript.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Dialogue Transcript</h4>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5 max-h-60 overflow-y-auto text-xs">
+                  {selectedMockCall.transcript.map((turn: any, idx: number) => (
+                    <div key={idx} className={`p-2.5 rounded-xl ${turn.speaker === 'user' ? 'bg-emerald-100/70 text-emerald-950 ml-6' : 'bg-white border text-slate-800 mr-6'}`}>
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block mb-0.5">
+                        {turn.speaker === 'user' ? 'Trainee' : selectedMockCall.character}
+                      </span>
+                      {turn.text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setSelectedMockCall(null)}
+                className="px-5 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Close Audit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Checked Message Detail Inspection */}
+      {selectedCheckedMsg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div 
+            className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                  Message Analysis Record
+                </span>
+                <h3 className="text-lg font-bold text-slate-900 mt-1 capitalize">
+                  {selectedCheckedMsg.audience.replace(/_/g, ' ')} • {selectedCheckedMsg.channel}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Analyzed at {selectedCheckedMsg.timestamp}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedCheckedMsg(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scorecard Hero */}
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-between">
+              <div>
+                <div className="text-xs text-emerald-800 font-semibold">Overall Communication Score</div>
+                <div className="text-2xl font-black text-emerald-900 font-mono">{selectedCheckedMsg.overallScore}%</div>
+              </div>
+              <div className="flex gap-2">
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-white text-emerald-800 border border-emerald-200">
+                  Strongest: {selectedCheckedMsg.strongestC}
+                </span>
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                  Growth: {selectedCheckedMsg.growthC}
+                </span>
+              </div>
+            </div>
+
+            {/* Original Message */}
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Submitted Message</h4>
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 font-mono whitespace-pre-wrap leading-relaxed">
+                {selectedCheckedMsg.originalSnippet}
+              </div>
+            </div>
+
+            {/* Improved Exemplar (if available) */}
+            {selectedCheckedMsg.fullData?.improvedMessage && (
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-700">ClearCue Exemplar Rewrite</h4>
+                <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs text-emerald-950 font-sans whitespace-pre-wrap leading-relaxed">
+                  {selectedCheckedMsg.fullData.improvedMessage}
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2 flex justify-between items-center">
+              <button
+                onClick={() => {
+                  const snippet = selectedCheckedMsg.originalSnippet;
+                  const aud = selectedCheckedMsg.audience;
+                  setSelectedCheckedMsg(null);
+                  onNavigate('check', { prefillMessage: snippet, audience: aud });
+                }}
+                className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Re-check in Message Checker</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setSelectedCheckedMsg(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

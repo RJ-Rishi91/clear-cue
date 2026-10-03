@@ -150,6 +150,7 @@ export interface CheckedMessageRecord {
   overallScore: number;
   strongestC: SevenCKey;
   growthC: SevenCKey;
+  fullData?: MessageAnalysisResult;
 }
 
 export interface UserProfile {

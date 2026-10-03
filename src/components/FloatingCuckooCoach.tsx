@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MrCuckoo } from './MrCuckoo';
 import { X, Send, Sparkles, HelpCircle, Loader2 } from 'lucide-react';
+import { API_BASE, getAuthHeaders } from '../utils/api';
 
 interface FloatingCuckooCoachProps {
   currentRuleTip?: string;
@@ -30,9 +31,9 @@ export const FloatingCuckooCoach: React.FC<FloatingCuckooCoachProps> = ({ curren
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/cuckoo-coach', {
+      const res = await fetch(`${API_BASE}/cuckoo-coach`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ question: q }),
       });
 
@@ -50,7 +51,7 @@ export const FloatingCuckooCoach: React.FC<FloatingCuckooCoachProps> = ({ curren
   };
 
   return (
-    <aside aria-label="Professor Cuckoo Floating Voice Coach" className="fixed bottom-5 right-5 z-50 flex flex-col items-end">
+    <aside aria-label="Professor Cuckoo Floating Voice Coach" className="fixed bottom-5 right-5 z-50 flex flex-col items-end print:hidden">
       {isOpen && (
         <div className="mb-3 animate-fade-in">
           <div className="relative bg-white/95 backdrop-blur-md rounded-3xl border border-emerald-300 shadow-2xl p-5 max-w-sm sm:max-w-md w-[92vw] sm:w-[420px] flex flex-col space-y-4">
