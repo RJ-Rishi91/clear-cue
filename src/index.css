@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #1a2e26;
+  background-color: #fbfaf6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle smooth transitions and animations */
+@keyframes cuckoo-bob {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-5px) rotate(1.5deg); }
+}
+
+@keyframes cuckoo-wing-wave {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-18deg); }
+}
+
+@keyframes cuckoo-mouth-talk {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.45) translateY(1px); }
+}
+
+.animate-cuckoo-bob {
+  animation: cuckoo-bob 3s ease-in-out infinite;
+}
+
+.animate-cuckoo-wave {
+  animation: cuckoo-wing-wave 1.2s ease-in-out infinite;
+  transform-origin: bottom right;
+}
+
+.animate-cuckoo-talk {
+  animation: cuckoo-mouth-talk 0.28s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* 3D Flashcard Flip Mechanics */
+.perspective-1000 {
+  perspective: 1000px;
+  -webkit-perspective: 1000px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
+}
