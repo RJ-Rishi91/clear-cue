@@ -17,6 +17,8 @@ import { AuthModal } from './components/AuthModal';
 import { MasterPanel } from './components/MasterPanel';
 import { AdminPanel } from './components/AdminPanel';
 import { TeacherStudio } from './components/TeacherStudio';
+import { Footer } from './components/Footer';
+import { PolicyModal, PolicyTab } from './components/PolicyModal';
 import { 
   fetchUsers, 
   fetchUserProgress, 
@@ -134,6 +136,8 @@ export default function App() {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
+  const [policyModalOpen, setPolicyModalOpen] = useState(false);
+  const [policyModalTab, setPolicyModalTab] = useState<PolicyTab>('privacy');
 
   const [progress, setProgress] = useState<UserProgressData>(() => {
     try {
@@ -146,6 +150,30 @@ export default function App() {
     }
     return INITIAL_PROGRESS;
   });
+
+  // Deep linking and hash route synchronization for SEO and policy modals
+  useEffect(() => {
+    const handleHashCheck = () => {
+      const hash = window.location.hash.toLowerCase().replace(/^#/, '');
+      if (['privacy', 'terms', 'security', 'cookies'].includes(hash)) {
+        setPolicyModalTab(hash as PolicyTab);
+        setPolicyModalOpen(true);
+      } else if (hash === 'check-message' || hash === 'check') {
+        setCurrentView('check');
+      } else if (hash && ['home', 'seven-cs', 'draft-email', 'mock-calls', 'pronunciation', 'flashcards', 'practice', 'progress', 'about'].includes(hash)) {
+        setCurrentView(hash as NavView);
+      }
+    };
+    handleHashCheck();
+    window.addEventListener('hashchange', handleHashCheck);
+    return () => window.removeEventListener('hashchange', handleHashCheck);
+  }, []);
+
+  const handleOpenPolicy = (tab: PolicyTab) => {
+    setPolicyModalTab(tab);
+    setPolicyModalOpen(true);
+    window.location.hash = tab;
+  };
 
   // Hydrate authenticated user session on mount
   useEffect(() => {
@@ -224,6 +252,7 @@ export default function App() {
       setCheckerAudience(payload.audience);
     }
     setCurrentView(view);
+    window.location.hash = view;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -430,6 +459,9 @@ export default function App() {
         )}
       </main>
 
+      {/* Footer & Policy Navigation */}
+      <Footer onNavigate={handleNavigate} onOpenPolicy={handleOpenPolicy} />
+
       {/* Floating Mr. Cuckoo Voice Coach */}
       <FloatingCuckooCoach />
 
@@ -450,6 +482,13 @@ export default function App() {
         onClose={() => setAuthModalOpen(false)}
         onAuthSuccess={handleAuthSuccess}
         initialMode={authModalMode}
+      />
+
+      {/* Legal & Compliance Policy Modal */}
+      <PolicyModal
+        isOpen={policyModalOpen}
+        onClose={() => setPolicyModalOpen(false)}
+        initialTab={policyModalTab}
       />
     </div>
   );

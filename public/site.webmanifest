@@ -1,0 +1,17 @@
+{
+  "name": "ClearCue — AI Insurance Communication Coach",
+  "short_name": "ClearCue",
+  "description": "AI-Powered Insurance Communication Coach & Operational Training Platform for VAs and CSRs",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

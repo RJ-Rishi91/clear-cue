@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <!-- Homepage & Core Application -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- 7 Cs of Insurance Communication Framework -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/#seven-cs</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- AI Message Analyzer & 7 Cs Scorer -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/#check-message</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Commercial & Personal Lines Email Drafting Assistant -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/#draft-email</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Interactive AI Mock Call Simulator -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/#mock-calls</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Phonetic Pronunciation & Accent Training Lab -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/#pronunciation</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Industry Scenarios & Interactive Training -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/#practice</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Insurance Terminology Flashcards & Memory Match -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/#flashcards</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Agent Competency & Learning Analytics Dashboard -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/#progress</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.75</priority>
+  </url>
+
+  <!-- About ClearCue & Operational Standards -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/#about</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Legal: Privacy Policy -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/privacy.html</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Legal: Terms of Service -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/terms.html</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Legal: Security & Compliance -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/security.html</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Legal: Cookie & Local Storage Policy -->
+  <url>
+    <loc>https://clear-cue.onerishi.in/cookies.html</loc>
+    <lastmod>2026-10-04T07:50:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>

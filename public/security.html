@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Security & Compliance — ClearCue Insurance Communication Platform</title>
+    <meta name="description" content="ClearCue Security & Compliance Overview. Learn about our encryption standards, MongoDB Atlas TLS architecture, RBAC access governance, and BPO security." />
+    <link rel="canonical" href="https://clear-cue.onerishi.in/security.html" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      :root { --bg: #090d16; --card: #0f172a; --border: #1e293b; --text: #e2e8f0; --muted: #94a3b8; --accent: #10b981; }
+      body { margin: 0; padding: 2rem 1rem; font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+      .container { max-width: 800px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 2.5rem; }
+      h1 { color: #f8fafc; font-size: 2rem; margin-top: 0; }
+      h2 { color: #10b981; font-size: 1.25rem; margin-top: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+      p, li { color: var(--muted); font-size: 0.95rem; }
+      ul { padding-left: 1.5rem; }
+      .badge { display: inline-block; background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 9999px; padding: 0.25rem 0.75rem; font-size: 0.8rem; font-weight: 600; margin-bottom: 1rem; }
+      .back-btn { display: inline-flex; align-items: center; gap: 0.5rem; color: #10b981; text-decoration: none; font-size: 0.9rem; font-weight: 600; margin-bottom: 1.5rem; }
+      .back-btn:hover { text-decoration: underline; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+      .card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
+      .card h3 { margin: 0 0 0.5rem 0; font-size: 1rem; color: #f8fafc; }
+      footer { margin-top: 3rem; pt: 1.5rem; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--muted); text-align: center; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <a href="/" class="back-btn">← Back to ClearCue App</a>
+      <span class="badge">Enterprise Infrastructure</span>
+      <h1>Security & Compliance Standards</h1>
+      <p>ClearCue is engineered with defense-in-depth principles designed to satisfy the strict data governance requirements of insurance agencies, commercial brokerage networks, and BPO operations.</p>
+
+      <div class="grid">
+        <div class="card">
+          <h3>🔐 Encryption in Transit</h3>
+          <p>Enforced HTTPS with TLS 1.3 across GitHub Pages CDN, Render Web Services, and MongoDB Atlas database clusters.</p>
+        </div>
+        <div class="card">
+          <h3>🛡️ Multi-Tier RBAC</h3>
+          <p>Cryptographic JWT tokens and strict server middleware enforce isolation between Master, Admin, Teacher, and Trainee roles.</p>
+        </div>
+        <div class="card">
+          <h3>⚡ In-Memory Heuristics</h3>
+          <p>Zero third-party telemetry for everyday coaching checks. NLP analyses are processed ephemerally in RAM.</p>
+        </div>
+      </div>
+
+      <h2>1. Cloud Infrastructure & Hosting Security</h2>
+      <p>ClearCue employs a decoupled zero-trust microservice architecture:</p>
+      <ul>
+        <li><strong>Frontend Edge:</strong> Hosted on GitHub Pages with global CDN caching, DDoS mitigation, and automatic Content Security Policies.</li>
+        <li><strong>Backend Compute:</strong> Render cloud services running isolated containerized Node.js runtimes with automatic environment isolation.</li>
+        <li><strong>Database Layer:</strong> MongoDB Atlas M0 cluster fortified with replica sets, encrypted at-rest storage, and dedicated user credential authentication.</li>
+      </ul>
+
+      <h2>2. Authentication & Credential Storage</h2>
+      <p>User passwords are never stored in plaintext. ClearCue hashes all credentials using industry-standard bcrypt with high-work-factor salt rounds. API communication is authenticated using stateless, tamper-evident JSON Web Tokens (JWT) signed with 256-bit cryptographic secrets.</p>
+
+      <h2>3. Disaster Recovery & High Concurrency</h2>
+      <p>The platform features automatic dual-engine persistence with seamless failover, ensuring that operations remain functional with zero service disruption even during external cloud maintenance windows.</p>
+
+      <h2>4. Vulnerability Disclosure</h2>
+      <p>We welcome responsible security disclosures. If you discover a vulnerability, please reach out directly to our security engineering team at <a href="mailto:security@clear-cue.onerishi.in" style="color: #10b981;">security@clear-cue.onerishi.in</a>.</p>
+
+      <footer>
+        &copy; 2026 ClearCue. Clear Communication for Insurance Professionals. All rights reserved.
+      </footer>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cookie & Storage Policy — ClearCue</title>
+    <meta name="description" content="ClearCue Cookie and Client Storage Policy. Learn how we use browser localStorage strictly for session tokens and offline-first practice caching." />
+    <link rel="canonical" href="https://clear-cue.onerishi.in/cookies.html" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      :root { --bg: #090d16; --card: #0f172a; --border: #1e293b; --text: #e2e8f0; --muted: #94a3b8; --accent: #f59e0b; }
+      body { margin: 0; padding: 2rem 1rem; font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+      .container { max-width: 800px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 2.5rem; }
+      h1 { color: #f8fafc; font-size: 2rem; margin-top: 0; }
+      h2 { color: #f59e0b; font-size: 1.25rem; margin-top: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+      p, li { color: var(--muted); font-size: 0.95rem; }
+      ul { padding-left: 1.5rem; }
+      .badge { display: inline-block; background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 9999px; padding: 0.25rem 0.75rem; font-size: 0.8rem; font-weight: 600; margin-bottom: 1rem; }
+      .back-btn { display: inline-flex; align-items: center; gap: 0.5rem; color: #f59e0b; text-decoration: none; font-size: 0.9rem; font-weight: 600; margin-bottom: 1.5rem; }
+      .back-btn:hover { text-decoration: underline; }
+      footer { margin-top: 3rem; pt: 1.5rem; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--muted); text-align: center; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <a href="/" class="back-btn">← Back to ClearCue App</a>
+      <span class="badge">Transparency Disclosure</span>
+      <h1>Cookie & Local Storage Policy</h1>
+      <p>ClearCue respects your privacy and avoids invasive third-party ad tracking or advertising cookies.</p>
+
+      <h2>1. Do We Use Tracking Cookies?</h2>
+      <p><strong>No.</strong> ClearCue does not use third-party behavioral advertising cookies, data broker pixels, or cross-site tracking trackers.</p>
+
+      <h2>2. Browser Local Storage Utilization</h2>
+      <p>We utilize HTML5 <code>localStorage</code> strictly for functional and educational continuity purposes:</p>
+      <ul>
+        <li><code>clearcue_auth_token</code>: Stores your encrypted session JWT so you remain logged in across browser refreshes.</li>
+        <li><code>clearcue_backend_api_url</code>: Allows configuring a custom Render backend connection if requested.</li>
+        <li><code>clearcue_user_progress_v2</code>: Caches your practice history, flashcard mastery count, and streaks locally for fast offline access.</li>
+      </ul>
+
+      <h2>3. Clearing Your Data</h2>
+      <p>You can clear your local data at any time by clicking <strong>Log Out</strong> or clearing your browser's site data in Developer Tools &rarr; Application &rarr; Local Storage.</p>
+
+      <footer>
+        &copy; 2026 ClearCue. Clear Communication for Insurance Professionals. All rights reserved.
+      </footer>
+    </div>
+  </body>
+</html>

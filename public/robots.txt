@@ -1,0 +1,16 @@
+# Robots.txt for ClearCue (https://clear-cue.onerishi.in)
+User-agent: *
+Allow: /
+Allow: /sitemap.xml
+Allow: /privacy.html
+Allow: /terms.html
+Allow: /security.html
+Allow: /cookies.html
+
+# Prevent indexing of private administrative and API routes
+Disallow: /api/admin/
+Disallow: /api/master/
+Disallow: /api/teacher/
+
+# Sitemap location
+Sitemap: https://clear-cue.onerishi.in/sitemap.xml
