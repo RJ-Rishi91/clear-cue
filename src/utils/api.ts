@@ -1,9 +1,37 @@
 import { UserProfile, UserProgressData, CheckedMessageRecord, MockCallRecord, AccountRole } from '../types';
 
-const rawApiUrl = (import.meta.env.VITE_API_URL as string | undefined) || '';
-const trimmedApiUrl = rawApiUrl.trim().replace(/\/+$/, '');
-const noTrailingApi = trimmedApiUrl.replace(/\/api$/i, '');
-export const API_BASE = noTrailingApi ? `${noTrailingApi}/api` : '/api';
+export const CUSTOM_API_URL_KEY = 'clearcue_backend_api_url';
+
+export function getCustomApiUrl(): string {
+  try {
+    return localStorage.getItem(CUSTOM_API_URL_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function setCustomApiUrl(url: string): void {
+  try {
+    const clean = url.trim().replace(/\/+$/, '').replace(/\/api$/i, '');
+    if (!clean) {
+      localStorage.removeItem(CUSTOM_API_URL_KEY);
+    } else {
+      localStorage.setItem(CUSTOM_API_URL_KEY, clean);
+    }
+  } catch (e) {
+    console.warn('Failed to save custom backend API URL:', e);
+  }
+}
+
+export function getEffectiveApiBase(): string {
+  const custom = getCustomApiUrl();
+  const raw = custom || (import.meta.env.VITE_API_URL as string | undefined) || '';
+  const trimmed = raw.trim().replace(/\/+$/, '');
+  const noTrailing = trimmed.replace(/\/api$/i, '');
+  return noTrailing ? `${noTrailing}/api` : '/api';
+}
+
+export const API_BASE = getEffectiveApiBase();
 
 export const AUTH_TOKEN_KEY = 'clearcue_auth_token';
 

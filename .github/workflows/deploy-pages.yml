@@ -35,7 +35,7 @@ jobs:
           # Set these secrets in GitHub repo Settings -> Secrets -> Actions
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_BASE_PATH: /
-        run: npx vite build
+        run: npx vite build && cp dist/index.html dist/404.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

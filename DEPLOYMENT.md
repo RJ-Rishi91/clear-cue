@@ -154,26 +154,34 @@
 
 ### Step 3: Deploy Frontend to GitHub Pages
 
-1. In your GitHub repository **Settings** → **Secrets and variables** → **Actions**:
-   - Click **New repository secret**
-   - **Name:** `VITE_API_URL`
-   - **Value:** Your Render backend URL, e.g.:
+1. **Custom Domain (`clear-cue-onerishi.in`):**
+   - The repository includes [`CNAME`](file:///home/rushal/Desktop/Clear%20Cue/CNAME) and [`public/CNAME`](file:///home/rushal/Desktop/Clear%20Cue/public/CNAME) configured for:
      ```
-     https://clearcue-backend.onrender.com
+     clear-cue-onerishi.in
      ```
+   - In your DNS provider (e.g. Cloudflare / GoDaddy / Namecheap):
+     - Add a **CNAME** record:
+       - **Host / Name:** `@` or `clear-cue` (depending on subdomain vs root)
+       - **Target / Value:** `rj-rishi91.github.io`
+   - In your GitHub repo **Settings** → **Pages**:
+     - **Source:** Select **GitHub Actions**
+     - **Custom domain:** `clear-cue-onerishi.in` (Check **Enforce HTTPS**)
 
-2. In **Settings** → **Pages**:
-   - **Source:** Select **GitHub Actions**
+2. **Configure Render Backend URL:**
+   - **Option A (GitHub Actions Secret):**
+     - In GitHub repo **Settings** → **Secrets and variables** → **Actions**:
+     - Click **New repository secret**
+     - **Name:** `VITE_API_URL`
+     - **Value:** Your Render backend URL, e.g. `https://clearcue-backend.onrender.com`
+   - **Option B (Zero-Rebuild In-App Config):**
+     - Open the live frontend on `clear-cue-onerishi.in`
+     - Click your profile / avatar → **Account Settings** → **Cloud Deployment Architecture**
+     - Click **Change Render URL**, enter your Render backend address, and click **Connect**!
+     - It connects immediately and saves to `localStorage` without rebuilding!
 
-3. Push to `master` (or `main`) — the workflow in `.github/workflows/deploy-pages.yml` automatically:
-   - Installs dependencies
-   - Builds the SPA with `VITE_API_URL` and `VITE_BASE_PATH=/clear-cue/`
-   - Deploys to GitHub Pages
-
-4. **Your frontend is live at:**
-   ```
-   https://rj-rishi91.github.io/clear-cue/
-   ```
+3. **Push to deploy:**
+   - Pushing to `master` automatically triggers `.github/workflows/deploy-pages.yml`
+   - The site builds and publishes with full SPA 404 routing support to `https://clear-cue-onerishi.in/`!
 
 ---
 

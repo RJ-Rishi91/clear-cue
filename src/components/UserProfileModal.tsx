@@ -15,9 +15,21 @@ import {
   Flame, 
   Award, 
   Send,
-  Sparkles
+  Sparkles,
+  Server,
+  Globe,
+  RefreshCw
 } from 'lucide-react';
-import { fetchUsers, createUser, updateUserProfile, fetchBackendStatus, BackendStatus } from '../utils/api';
+import { 
+  fetchUsers, 
+  createUser, 
+  updateUserProfile, 
+  fetchBackendStatus, 
+  BackendStatus,
+  getCustomApiUrl,
+  setCustomApiUrl,
+  getEffectiveApiBase
+} from '../utils/api';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -53,6 +65,30 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [newPassword, setNewPassword] = useState('clearcue123');
   const [newRole, setNewRole] = useState('Insurance VA Trainee');
   const [newAgency, setNewAgency] = useState('CoverDirect Agency');
+
+  // Backend API URL configuration state
+  const [customUrl, setCustomUrl] = useState(getCustomApiUrl());
+  const [isEditingUrl, setIsEditingUrl] = useState(false);
+  const [connectingUrl, setConnectingUrl] = useState(false);
+  const [urlSuccessMsg, setUrlSuccessMsg] = useState<string | null>(null);
+
+  const handleSaveApiUrl = async () => {
+    setConnectingUrl(true);
+    setUrlSuccessMsg(null);
+    setCustomApiUrl(customUrl);
+    try {
+      const status = await fetchBackendStatus();
+      setBackendStatus(status);
+      setIsEditingUrl(false);
+      setUrlSuccessMsg('Successfully connected to backend API!');
+      setTimeout(() => setUrlSuccessMsg(null), 3000);
+      setError(null);
+    } catch (err: any) {
+      setError('Could not reach backend at specified URL. If using Render, ensure instance is running and CORS is permitted.');
+    } finally {
+      setConnectingUrl(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -193,6 +229,86 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <p className="text-[11px] text-emerald-900/80 leading-relaxed">
               All 6 training modules (Message Analysis, Email Writer, AI Mock Calls, Voice Pronunciation, Practice Scenarios, and Professor Cuckoo Mascot) are fully equipped with built-in heuristic & phonetic engines that run locally on your system. No paid tools, paid subscriptions, or paid API keys are required.
             </p>
+          </div>
+
+          {/* Cloud Deployment Architecture Card (GitHub Pages -> Render -> MongoDB Atlas) */}
+          <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Server className="w-4 h-4 text-emerald-400" />
+                <span className="font-bold text-xs tracking-tight text-white">Full-Stack Cloud Architecture</span>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                GitHub Pages + Render + Atlas
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+              <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                <span className="text-slate-400 text-[10px] block font-medium">Frontend Host</span>
+                <strong className="text-white block">GitHub Pages</strong>
+                <span className="text-[10px] text-emerald-400 block truncate">clear-cue-onerishi.in</span>
+              </div>
+              <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                <span className="text-slate-400 text-[10px] block font-medium">Backend API</span>
+                <strong className="text-white block">Render Web Service</strong>
+                <span className="text-[10px] text-blue-300 block truncate">{getEffectiveApiBase()}</span>
+              </div>
+              <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                <span className="text-slate-400 text-[10px] block font-medium">Database Store</span>
+                <strong className="text-white block">MongoDB Atlas</strong>
+                <span className="text-[10px] text-amber-300 block truncate">
+                  {backendStatus?.mongoConnected ? 'Atlas Cloud (Active)' : 'SQLite Local Persistent'}
+                </span>
+              </div>
+            </div>
+
+            {/* Custom Backend URL configuration toggle */}
+            <div className="pt-2 border-t border-white/10 flex flex-col gap-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-300 text-[11px]">Backend API URL:</span>
+                {!isEditingUrl ? (
+                  <button
+                    onClick={() => setIsEditingUrl(true)}
+                    className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold underline cursor-pointer"
+                  >
+                    Change Render URL
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setIsEditingUrl(false)}
+                    className="text-[11px] text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+
+              {isEditingUrl && (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customUrl}
+                    onChange={(e) => setCustomUrl(e.target.value)}
+                    placeholder="e.g. https://clearcue-backend.onrender.com"
+                    className="flex-1 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 placeholder:text-slate-500"
+                  />
+                  <button
+                    onClick={handleSaveApiUrl}
+                    disabled={connectingUrl}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {connectingUrl ? 'Connecting...' : 'Connect'}
+                  </button>
+                </div>
+              )}
+
+              {urlSuccessMsg && (
+                <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                  <span>✓</span> {urlSuccessMsg}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Active Profile Card */}
