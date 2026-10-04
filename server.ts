@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { initDatabase, db } from './db';
 import { connectMongo, getIsMongoConnected, MongoUser, MongoProgress, MongoCheckedMessage, MongoMockCall, MongoPronunciation } from './mongo';
-import { generateToken, authMiddleware, ensurePasswordColumnInSQLite, AuthRequest } from './auth';
+import { generateToken, authMiddleware, ensurePasswordColumnInSQLite, AuthRequest, requireRole, AccountRole } from './auth';
 
 dotenv.config();
 initDatabase();
@@ -632,7 +632,16 @@ app.get('/api/status', (req, res) => {
 // AUTH: Register new user
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { username, password, name, email = '', role = 'Insurance Operations Specialist (VA)', agency = 'CoverDirect Agency US', avatar = 'avatar-1' } = req.body;
+    const { 
+      username, 
+      password, 
+      name, 
+      email = '', 
+      role = 'Insurance Operations Specialist (VA)', 
+      accountRole = 'user',
+      agency = 'CoverDirect Agency US', 
+      avatar = 'avatar-1' 
+    } = req.body;
 
     if (!username || !password || !name) {
       res.status(400).json({ error: 'Username, password, and full name are required.' });
@@ -646,6 +655,7 @@ app.post('/api/auth/register', async (req, res) => {
 
     const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
     const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanAccountRole = (['master', 'admin', 'teacher', 'user'].includes(accountRole) ? accountRole : 'user') as AccountRole;
     const passwordHash = await bcrypt.hash(password, 10);
 
     if (getIsMongoConnected()) {
@@ -663,6 +673,7 @@ app.post('/api/auth/register', async (req, res) => {
         passwordHash,
         name: name.trim(),
         role: role.trim(),
+        accountRole: cleanAccountRole,
         agency: agency.trim(),
         avatar,
       });
@@ -677,9 +688,9 @@ app.post('/api/auth/register', async (req, res) => {
       // Mirror to SQLite persistent store to satisfy relational foreign key constraints
       try {
         db.prepare(`
-          INSERT OR IGNORE INTO users (id, username, name, email, role, agency, avatar, password_hash)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(newUser._id.toString(), cleanUsername, name.trim(), cleanEmail, role.trim(), agency.trim(), avatar, passwordHash);
+          INSERT OR IGNORE INTO users (id, username, name, email, role, account_role, agency, avatar, password_hash)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(newUser._id.toString(), cleanUsername, name.trim(), cleanEmail, role.trim(), cleanAccountRole, agency.trim(), avatar, passwordHash);
 
         db.prepare(`
           INSERT OR IGNORE INTO user_progress (user_id, total_checked, average_score, completed_scenario_ids, streak_days, last_active_date)
@@ -689,7 +700,7 @@ app.post('/api/auth/register', async (req, res) => {
         console.warn('SQLite mirror registration note:', sqlErr);
       }
 
-      const token = generateToken({ id: newUser._id.toString(), username: newUser.username });
+      const token = generateToken({ id: newUser._id.toString(), username: newUser.username, accountRole: cleanAccountRole });
       res.json({
         success: true,
         token,
@@ -699,6 +710,7 @@ app.post('/api/auth/register', async (req, res) => {
           name: newUser.name,
           email: newUser.email,
           role: newUser.role,
+          accountRole: cleanAccountRole,
           agency: newUser.agency,
           avatar: newUser.avatar,
         },
@@ -715,16 +727,16 @@ app.post('/api/auth/register', async (req, res) => {
 
     const id = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
     db.prepare(`
-      INSERT INTO users (id, username, name, email, role, agency, avatar, password_hash)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, cleanUsername, name.trim(), cleanEmail, role.trim(), agency.trim(), avatar, passwordHash);
+      INSERT INTO users (id, username, name, email, role, account_role, agency, avatar, password_hash)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, cleanUsername, name.trim(), cleanEmail, role.trim(), cleanAccountRole, agency.trim(), avatar, passwordHash);
 
     db.prepare(`
       INSERT INTO user_progress (user_id, total_checked, average_score, completed_scenario_ids, streak_days, last_active_date)
       VALUES (?, 0, 0, '[]', 1, ?)
     `).run(id, new Date().toISOString().split('T')[0]);
 
-    const token = generateToken({ id, username: cleanUsername });
+    const token = generateToken({ id, username: cleanUsername, accountRole: cleanAccountRole });
     res.json({
       success: true,
       token,
@@ -734,6 +746,7 @@ app.post('/api/auth/register', async (req, res) => {
         name: name.trim(),
         email: cleanEmail,
         role: role.trim(),
+        accountRole: cleanAccountRole,
         agency: agency.trim(),
         avatar,
       },
@@ -773,17 +786,19 @@ app.post('/api/auth/login', async (req, res) => {
       user.lastActive = new Date();
       await user.save();
 
+      const userRole = (user.accountRole as AccountRole) || 'user';
+
       // Mirror to SQLite persistent store to satisfy relational foreign key constraints
       try {
         db.prepare(`
-          INSERT OR IGNORE INTO users (id, username, name, email, role, agency, avatar, password_hash)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(user._id.toString(), user.username, user.name, user.email || '', user.role || 'Insurance Operations Specialist (VA)', user.agency || 'CoverDirect Agency US', user.avatar || 'avatar-1', user.passwordHash);
+          INSERT OR IGNORE INTO users (id, username, name, email, role, account_role, agency, avatar, password_hash)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(user._id.toString(), user.username, user.name, user.email || '', user.role || 'Insurance Operations Specialist (VA)', userRole, user.agency || 'CoverDirect Agency US', user.avatar || 'avatar-1', user.passwordHash);
       } catch (sqlErr) {
         // ignore
       }
 
-      const token = generateToken({ id: user._id.toString(), username: user.username });
+      const token = generateToken({ id: user._id.toString(), username: user.username, accountRole: userRole });
       res.json({
         success: true,
         token,
@@ -793,6 +808,7 @@ app.post('/api/auth/login', async (req, res) => {
           name: user.name,
           email: user.email,
           role: user.role,
+          accountRole: userRole,
           agency: user.agency,
           avatar: user.avatar,
         },
@@ -815,7 +831,8 @@ app.post('/api/auth/login', async (req, res) => {
 
     db.prepare("UPDATE users SET last_active = datetime('now') WHERE id = ?").run(user.id);
 
-    const token = generateToken(user);
+    const userRole = (user.account_role as AccountRole) || 'user';
+    const token = generateToken({ id: user.id, username: user.username, accountRole: userRole });
     res.json({
       success: true,
       token,
@@ -825,6 +842,7 @@ app.post('/api/auth/login', async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        accountRole: userRole,
         agency: user.agency,
         avatar: user.avatar,
       },
@@ -855,19 +873,21 @@ function ensureSQLiteUser(
   name?: string,
   email?: string,
   role?: string,
+  accountRole?: string,
   agency?: string,
   avatar?: string
 ) {
   try {
     db.prepare(`
-      INSERT OR IGNORE INTO users (id, username, name, email, role, agency, avatar)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT OR IGNORE INTO users (id, username, name, email, role, account_role, agency, avatar)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       userId,
       username || ('user_' + userId.slice(-6)),
       name || 'User',
       email || '',
       role || 'Insurance Operations Specialist (VA)',
+      accountRole || 'user',
       agency || 'CoverDirect Agency US',
       avatar || 'avatar-1'
     );
@@ -875,6 +895,167 @@ function ensureSQLiteUser(
     // Ignore duplicate or constraint warnings
   }
 }
+
+// ----------------------------------------------------------------------------
+// ROLE-BASED ACCESS CONTROL (RBAC) MANAGEMENT API
+// ----------------------------------------------------------------------------
+
+// Master & Admin: List all registered users with system roles and metrics
+app.get('/api/admin/users', authMiddleware(true), requireRole('master', 'admin'), async (req: AuthRequest, res) => {
+  try {
+    let allUsers: any[] = [];
+    if (getIsMongoConnected()) {
+      const mongoUsers = await MongoUser.find().sort({ lastActive: -1 }).lean();
+      const progressDocs = await MongoProgress.find().lean();
+      const progressMap = new Map(progressDocs.map((p: any) => [p.userId, p]));
+
+      allUsers = mongoUsers.map((u: any) => {
+        const id = u._id.toString();
+        const p: any = progressMap.get(id);
+        return {
+          id,
+          username: u.username,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          accountRole: u.accountRole || 'user',
+          agency: u.agency,
+          avatar: u.avatar,
+          totalChecked: p?.totalChecked || 0,
+          averageScore: p?.averageScore || 0,
+          streakDays: p?.streakDays || 1,
+          lastActive: u.lastActive,
+          createdAt: u.createdAt,
+        };
+      });
+    } else {
+      allUsers = db.prepare(`
+        SELECT u.id, u.username, u.name, u.email, u.role, u.account_role as accountRole, 
+               u.agency, u.avatar, u.created_at as createdAt, u.last_active as lastActive,
+               COALESCE(p.total_checked, 0) as totalChecked,
+               COALESCE(p.average_score, 0) as averageScore,
+               COALESCE(p.streak_days, 1) as streakDays
+        FROM users u
+        LEFT JOIN user_progress p ON u.id = p.user_id
+        ORDER BY u.last_active DESC
+      `).all() as any[];
+    }
+
+    res.json({ success: true, users: allUsers });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch users list.' });
+  }
+});
+
+// Master: Update user account role
+app.put('/api/admin/users/:userId/role', authMiddleware(true), requireRole('master'), async (req: AuthRequest, res) => {
+  try {
+    const { userId } = req.params;
+    const { accountRole } = req.body;
+
+    if (!['master', 'admin', 'teacher', 'user'].includes(accountRole)) {
+      res.status(400).json({ error: 'Invalid account role. Must be master, admin, teacher, or user.' });
+      return;
+    }
+
+    // Update in Mongo
+    if (getIsMongoConnected()) {
+      await MongoUser.findByIdAndUpdate(userId, { accountRole });
+    }
+
+    // Update in SQLite
+    db.prepare('UPDATE users SET account_role = ? WHERE id = ?').run(accountRole, userId);
+
+    res.json({ success: true, message: `User role updated to ${accountRole}` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to update user role.' });
+  }
+});
+
+// Master: Delete user
+app.delete('/api/admin/users/:userId', authMiddleware(true), requireRole('master'), async (req: AuthRequest, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Prevent deleting self
+    if (req.user?.id === userId) {
+      res.status(400).json({ error: 'Master administrator cannot delete their own account.' });
+      return;
+    }
+
+    if (getIsMongoConnected()) {
+      await MongoUser.findByIdAndDelete(userId);
+      await MongoProgress.deleteMany({ userId });
+      await MongoCheckedMessage.deleteMany({ userId });
+      await MongoMockCall.deleteMany({ userId });
+      await MongoPronunciation.deleteMany({ userId });
+    }
+
+    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    db.prepare('DELETE FROM user_progress WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM checked_messages WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM mock_calls WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM pronunciation_records WHERE user_id = ?').run(userId);
+
+    res.json({ success: true, message: 'User and all training records deleted.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete user.' });
+  }
+});
+
+// Teacher & Admin & Master: View students roster, progress and audits
+app.get('/api/teacher/students', authMiddleware(true), requireRole('master', 'admin', 'teacher'), async (req: AuthRequest, res) => {
+  try {
+    let students: any[] = [];
+    if (getIsMongoConnected()) {
+      const studentDocs = await MongoUser.find({ accountRole: 'user' }).lean();
+      const studentIds = studentDocs.map((s: any) => s._id.toString());
+      const progressDocs = await MongoProgress.find({ userId: { $in: studentIds } }).lean();
+      const progressMap = new Map(progressDocs.map((p: any) => [p.userId, p]));
+
+      students = studentDocs.map((s: any) => {
+        const id = s._id.toString();
+        const p: any = progressMap.get(id);
+        return {
+          id,
+          username: s.username,
+          name: s.name,
+          email: s.email,
+          role: s.role,
+          accountRole: 'user',
+          agency: s.agency,
+          avatar: s.avatar,
+          totalChecked: p?.totalChecked || 0,
+          averageScore: p?.averageScore || 0,
+          streakDays: p?.streakDays || 1,
+          completedScenariosCount: (p?.completedScenarioIds || []).length,
+          lastActive: s.lastActive,
+        };
+      });
+    } else {
+      students = db.prepare(`
+        SELECT u.id, u.username, u.name, u.email, u.role, u.account_role as accountRole, u.agency, u.avatar, u.last_active as lastActive,
+               COALESCE(p.total_checked, 0) as totalChecked,
+               COALESCE(p.average_score, 0) as averageScore,
+               COALESCE(p.streak_days, 1) as streakDays,
+               COALESCE(p.completed_scenario_ids, '[]') as completedScenariosJson
+        FROM users u
+        LEFT JOIN user_progress p ON u.id = p.user_id
+        WHERE u.account_role = 'user'
+        ORDER BY u.last_active DESC
+      `).all().map((row: any) => ({
+        ...row,
+        completedScenariosCount: (() => {
+          try { return JSON.parse(row.completedScenariosJson || '[]').length; } catch { return 0; }
+        })(),
+      }));
+    }
+
+    res.json({ success: true, students });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch students roster.' });
+  }
+});
 
 // List all registered user profiles (Dual-Engine: MongoDB Atlas + SQLite)
 app.get('/api/users', async (req, res) => {
@@ -896,6 +1077,7 @@ app.get('/api/users', async (req, res) => {
               name: u.name,
               email: u.email,
               role: u.role,
+              accountRole: u.accountRole || 'user',
               agency: u.agency,
               avatar: u.avatar,
               total_checked: p?.totalChecked || 0,
@@ -913,7 +1095,7 @@ app.get('/api/users', async (req, res) => {
     }
 
     const users = db.prepare(`
-      SELECT u.*, 
+      SELECT u.id, u.username, u.name, u.email, u.role, u.account_role as accountRole, u.agency, u.avatar, u.created_at, u.last_active,
         COALESCE(p.total_checked, 0) as total_checked,
         COALESCE(p.average_score, 0) as average_score,
         COALESCE(p.streak_days, 1) as streak_days
@@ -930,7 +1112,7 @@ app.get('/api/users', async (req, res) => {
 // Create new user profile or switch to existing (Dual-Engine)
 app.post('/api/users', async (req, res) => {
   try {
-    const { username, name, email = '', role = 'Insurance VA Trainee', agency = 'CoverDirect Agency', avatar = 'avatar-1', password = 'clearcue123' } = req.body;
+    const { username, name, email = '', role = 'Insurance VA Trainee', accountRole = 'user', agency = 'CoverDirect Agency', avatar = 'avatar-1', password = 'clearcue123' } = req.body;
     if (!username || !name) {
       res.status(400).json({ error: 'Username and display name are required.' });
       return;
@@ -938,6 +1120,7 @@ app.post('/api/users', async (req, res) => {
 
     const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
     const cleanEmail = email.trim().toLowerCase();
+    const cleanAccountRole = ['master', 'admin', 'teacher', 'user'].includes(accountRole) ? accountRole : 'user';
     const passwordHash = await bcrypt.hash(password, 10);
 
     if (getIsMongoConnected()) {
@@ -949,6 +1132,7 @@ app.post('/api/users', async (req, res) => {
             email: cleanEmail,
             name: name.trim(),
             role: role.trim(),
+            accountRole: cleanAccountRole,
             agency: agency.trim(),
             avatar,
             passwordHash,
@@ -966,7 +1150,7 @@ app.post('/api/users', async (req, res) => {
         }
 
         // Mirror in SQLite
-        ensureSQLiteUser(user._id.toString(), cleanUsername, name, cleanEmail, role, agency, avatar);
+        ensureSQLiteUser(user._id.toString(), cleanUsername, name, cleanEmail, role, cleanAccountRole, agency, avatar);
 
         res.json({
           id: user._id.toString(),
@@ -974,6 +1158,7 @@ app.post('/api/users', async (req, res) => {
           name: user.name,
           email: user.email,
           role: user.role,
+          accountRole: cleanAccountRole,
           agency: user.agency,
           avatar: user.avatar,
         });
@@ -987,16 +1172,16 @@ app.post('/api/users', async (req, res) => {
     if (!user) {
       const id = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
       db.prepare(`
-        INSERT INTO users (id, username, name, email, role, agency, avatar, password_hash)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(id, cleanUsername, name.trim(), cleanEmail, role.trim(), agency.trim(), avatar, passwordHash);
+        INSERT INTO users (id, username, name, email, role, account_role, agency, avatar, password_hash)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, cleanUsername, name.trim(), cleanEmail, role.trim(), cleanAccountRole, agency.trim(), avatar, passwordHash);
 
       db.prepare(`
         INSERT INTO user_progress (user_id, total_checked, average_score, completed_scenario_ids, streak_days, last_active_date)
         VALUES (?, 0, 0, '[]', 1, ?)
       `).run(id, new Date().toISOString().split('T')[0]);
 
-      user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+      user = db.prepare('SELECT id, username, name, email, role, account_role as accountRole, agency, avatar FROM users WHERE id = ?').get(id);
     } else {
       db.prepare("UPDATE users SET last_active = datetime('now') WHERE id = ?").run(user.id);
     }

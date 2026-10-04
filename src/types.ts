@@ -1,3 +1,5 @@
+export type AccountRole = 'master' | 'admin' | 'teacher' | 'user';
+
 export type NavView = 
   | 'home' 
   | 'seven-cs' 
@@ -8,7 +10,10 @@ export type NavView =
   | 'mock-calls'
   | 'practice' 
   | 'progress' 
-  | 'about';
+  | 'about'
+  | 'master-panel'
+  | 'admin-panel'
+  | 'teacher-panel';
 
 export type SevenCKey =
   | 'clear'
@@ -159,6 +164,7 @@ export interface UserProfile {
   name: string;
   email?: string;
   role: string;
+  accountRole?: AccountRole;
   agency: string;
   avatar: string;
   created_at?: string;

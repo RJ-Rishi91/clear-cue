@@ -14,6 +14,9 @@ import { MockCallView } from './components/MockCallView';
 import { FloatingCuckooCoach } from './components/FloatingCuckooCoach';
 import { UserProfileModal } from './components/UserProfileModal';
 import { AuthModal } from './components/AuthModal';
+import { MasterPanel } from './components/MasterPanel';
+import { AdminPanel } from './components/AdminPanel';
+import { TeacherStudio } from './components/TeacherStudio';
 import { 
   fetchUsers, 
   fetchUserProgress, 
@@ -413,6 +416,18 @@ export default function App() {
         )}
 
         {currentView === 'about' && <AboutView onNavigate={handleNavigate} />}
+
+        {currentView === 'master-panel' && currentUser && (
+          <MasterPanel currentUser={currentUser} />
+        )}
+
+        {currentView === 'admin-panel' && currentUser && (
+          <AdminPanel currentUser={currentUser} />
+        )}
+
+        {currentView === 'teacher-panel' && currentUser && (
+          <TeacherStudio currentUser={currentUser} />
+        )}
       </main>
 
       {/* Floating Mr. Cuckoo Voice Coach */}

@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import bcrypt from 'bcryptjs';
 
 // Ensure data directory exists
 const dataDir = path.join(process.cwd(), 'data');
@@ -24,8 +25,10 @@ export function initDatabase() {
       name TEXT NOT NULL,
       email TEXT,
       role TEXT NOT NULL DEFAULT 'Insurance VA Trainee',
+      account_role TEXT NOT NULL DEFAULT 'user',
       agency TEXT NOT NULL DEFAULT 'CoverDirect Agency',
       avatar TEXT NOT NULL DEFAULT 'avatar-1',
+      password_hash TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       last_active TEXT DEFAULT (datetime('now'))
     );
@@ -92,6 +95,20 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_mock_calls_user_id ON mock_calls(user_id);
     CREATE INDEX IF NOT EXISTS idx_pronunciation_user_id ON pronunciation_records(user_id);
   `);
+
+  // Ensure columns exist on pre-existing databases
+  try {
+    const cols = db.prepare("PRAGMA table_info(users)").all() as any[];
+    if (!cols.some(c => c.name === 'account_role')) {
+      db.exec("ALTER TABLE users ADD COLUMN account_role TEXT DEFAULT 'user'");
+      db.prepare("UPDATE users SET account_role = 'user' WHERE account_role IS NULL").run();
+    }
+    if (!cols.some(c => c.name === 'password_hash')) {
+      db.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
+    }
+  } catch (err: any) {
+    console.warn('Column check note:', err.message);
+  }
 
   // Seed default user if none exists
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
@@ -226,4 +243,111 @@ export function initDatabase() {
       })
     );
   }
+
+  seedRoleAccounts();
 }
+
+export function seedRoleAccounts() {
+  const seedAccounts = [
+    {
+      id: 'usr_master',
+      username: 'master',
+      password: 'MasterPassword123!',
+      name: 'Chief Master Supervisor',
+      email: 'master@clearcue.app',
+      role: 'System Master Administrator',
+      accountRole: 'master',
+      agency: 'ClearCue Global HQ',
+      avatar: 'avatar-4',
+    },
+    {
+      id: 'usr_admin',
+      username: 'admin',
+      password: 'AdminPassword123!',
+      name: 'Operations Admin Director',
+      email: 'admin@clearcue.app',
+      role: 'Agency Operations Director',
+      accountRole: 'admin',
+      agency: 'CoverDirect Operations',
+      avatar: 'avatar-2',
+    },
+    {
+      id: 'usr_teacher',
+      username: 'teacher',
+      password: 'TeacherPassword123!',
+      name: 'Professor Cuckoo (Lead Coach)',
+      email: 'teacher@clearcue.app',
+      role: 'Lead Insurance Communication Instructor',
+      accountRole: 'teacher',
+      agency: 'ClearCue Training Academy',
+      avatar: 'avatar-5',
+    },
+    {
+      id: 'usr_trainee_user',
+      username: 'user',
+      password: 'UserPassword123!',
+      name: 'Alex Taylor (Trainee)',
+      email: 'alex.taylor@agency.com',
+      role: 'Commercial Lines CSR',
+      accountRole: 'user',
+      agency: 'Summit Peak Risk Partners',
+      avatar: 'avatar-3',
+    },
+    {
+      id: 'usr_testagent',
+      username: 'testagent',
+      password: 'Password123!',
+      name: 'Sarah Jenkins (Test Agent)',
+      email: 'sarah.jenkins@coverdirect.com',
+      role: 'Insurance Operations Specialist (VA)',
+      accountRole: 'user',
+      agency: 'CoverDirect Agency US',
+      avatar: 'avatar-1',
+    },
+  ];
+
+  const insertUser = db.prepare(`
+    INSERT OR REPLACE INTO users (id, username, name, email, role, account_role, agency, avatar, password_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const insertProgress = db.prepare(`
+    INSERT OR IGNORE INTO user_progress (
+      user_id, total_checked, average_score, flashcards_mastered, 
+      memory_match_high_score, pronunciation_checks_count, 
+      pronunciation_avg_accuracy, completed_scenario_ids, streak_days, last_active_date
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (const acc of seedAccounts) {
+    try {
+      const passwordHash = bcrypt.hashSync(acc.password, 10);
+      insertUser.run(
+        acc.id,
+        acc.username,
+        acc.name,
+        acc.email,
+        acc.role,
+        acc.accountRole,
+        acc.agency,
+        acc.avatar,
+        passwordHash
+      );
+      insertProgress.run(
+        acc.id,
+        acc.accountRole === 'master' || acc.accountRole === 'admin' ? 12 : 5,
+        acc.accountRole === 'teacher' ? 96 : 85,
+        25,
+        90,
+        4,
+        88,
+        JSON.stringify(['carrier-loss-runs']),
+        5,
+        new Date().toISOString().split('T')[0]
+      );
+    } catch (err: any) {
+      console.warn(`Seed account warning for ${acc.username}:`, err.message);
+    }
+  }
+}
+

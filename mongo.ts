@@ -41,6 +41,7 @@ const UserSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true },
   name: { type: String, required: true },
   role: { type: String, default: 'Insurance Operations Specialist (VA)' },
+  accountRole: { type: String, enum: ['master', 'admin', 'teacher', 'user'], default: 'user' },
   agency: { type: String, default: 'CoverDirect Agency US' },
   avatar: { type: String, default: 'avatar-1' },
   createdAt: { type: Date, default: Date.now },

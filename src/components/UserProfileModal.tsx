@@ -206,7 +206,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-bold text-slate-900">{currentUser.name}</h3>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      Active Profile
+                      Active
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      currentUser.accountRole === 'master' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
+                      currentUser.accountRole === 'admin' ? 'bg-blue-100 text-blue-900 border border-blue-300' :
+                      currentUser.accountRole === 'teacher' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' :
+                      'bg-slate-100 text-slate-800 border border-slate-200'
+                    }`}>
+                      {currentUser.accountRole || 'user'}
                     </span>
                   </div>
                   <p className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5 mt-0.5">

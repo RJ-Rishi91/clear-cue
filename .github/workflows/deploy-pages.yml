@@ -34,7 +34,7 @@ jobs:
         env:
           # Set these secrets in GitHub repo Settings -> Secrets -> Actions
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
-          VITE_BASE_PATH: /clear-cue/
+          VITE_BASE_PATH: /
         run: npx vite build
 
       - name: Setup Pages
