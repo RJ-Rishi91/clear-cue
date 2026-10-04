@@ -247,7 +247,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
                 <span className="text-slate-400 text-[10px] block font-medium">Frontend Host</span>
                 <strong className="text-white block">GitHub Pages</strong>
-                <span className="text-[10px] text-emerald-400 block truncate">clear-cue-onerishi.in</span>
+                <span className="text-[10px] text-emerald-400 block truncate">clear-cue.onerishi.in</span>
               </div>
               <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
                 <span className="text-slate-400 text-[10px] block font-medium">Backend API</span>

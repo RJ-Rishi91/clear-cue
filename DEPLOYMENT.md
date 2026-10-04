@@ -154,10 +154,10 @@
 
 ### Step 3: Deploy Frontend to GitHub Pages
 
-1. **Custom Domain (`clear-cue-onerishi.in`):**
+1. **Custom Domain (`clear-cue.onerishi.in`):**
    - The repository includes [`CNAME`](file:///home/rushal/Desktop/Clear%20Cue/CNAME) and [`public/CNAME`](file:///home/rushal/Desktop/Clear%20Cue/public/CNAME) configured for:
      ```
-     clear-cue-onerishi.in
+     clear-cue.onerishi.in
      ```
    - In your DNS provider (e.g. Cloudflare / GoDaddy / Namecheap):
      - Add a **CNAME** record:
@@ -165,7 +165,7 @@
        - **Target / Value:** `rj-rishi91.github.io`
    - In your GitHub repo **Settings** → **Pages**:
      - **Source:** Select **GitHub Actions**
-     - **Custom domain:** `clear-cue-onerishi.in` (Check **Enforce HTTPS**)
+     - **Custom domain:** `clear-cue.onerishi.in` (Check **Enforce HTTPS**)
 
 2. **Configure Render Backend URL:**
    - **Option A (GitHub Actions Secret):**
@@ -174,14 +174,14 @@
      - **Name:** `VITE_API_URL`
      - **Value:** Your Render backend URL, e.g. `https://clearcue-backend.onrender.com`
    - **Option B (Zero-Rebuild In-App Config):**
-     - Open the live frontend on `clear-cue-onerishi.in`
+     - Open the live frontend on `clear-cue.onerishi.in`
      - Click your profile / avatar → **Account Settings** → **Cloud Deployment Architecture**
      - Click **Change Render URL**, enter your Render backend address, and click **Connect**!
      - It connects immediately and saves to `localStorage` without rebuilding!
 
 3. **Push to deploy:**
    - Pushing to `master` automatically triggers `.github/workflows/deploy-pages.yml`
-   - The site builds and publishes with full SPA 404 routing support to `https://clear-cue-onerishi.in/`!
+   - The site builds and publishes with full SPA 404 routing support to `https://clear-cue.onerishi.in/`!
 
 ---
 
