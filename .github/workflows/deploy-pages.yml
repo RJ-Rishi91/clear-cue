@@ -33,7 +33,7 @@ jobs:
       - name: Build frontend for GitHub Pages
         env:
           # Set these secrets in GitHub repo Settings -> Secrets -> Actions
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://clearcue-backend.onrender.com' }}
           VITE_BASE_PATH: /
         run: npx vite build && cp dist/index.html dist/404.html && (test -f dist/CNAME || cp CNAME dist/CNAME)
 

@@ -25,7 +25,10 @@ export function setCustomApiUrl(url: string): void {
 
 export function getEffectiveApiBase(): string {
   const custom = getCustomApiUrl();
-  const raw = custom || (import.meta.env.VITE_API_URL as string | undefined) || '';
+  let raw = custom || (import.meta.env.VITE_API_URL as string | undefined) || '';
+  if (!raw && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    raw = 'https://clearcue-backend.onrender.com';
+  }
   const trimmed = raw.trim().replace(/\/+$/, '');
   const noTrailing = trimmed.replace(/\/api$/i, '');
   return noTrailing ? `${noTrailing}/api` : '/api';
