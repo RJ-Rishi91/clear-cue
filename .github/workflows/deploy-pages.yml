@@ -28,14 +28,14 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
       - name: Build frontend for GitHub Pages
         env:
           # Set these secrets in GitHub repo Settings -> Secrets -> Actions
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_BASE_PATH: /
-        run: npx vite build && cp dist/index.html dist/404.html
+        run: npx vite build && cp dist/index.html dist/404.html && (test -f dist/CNAME || cp CNAME dist/CNAME)
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
