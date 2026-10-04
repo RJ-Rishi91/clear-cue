@@ -54,7 +54,7 @@
 | :--------------- | :---------------------------- |
 | **Node.js**      | v18+ (v22 recommended)        |
 | **npm**          | v9+                           |
-| **Build Command**| `npm install --legacy-peer-deps && npm run build` |
+| **Build Command**| `npm install --include=dev --legacy-peer-deps && npm run build` |
 | **Start Command**| `npm start` (`node dist/server.cjs`) |
 | **Port**         | `PORT` env var (default 3000, Render auto-assigns 10000) |
 | **Health Check** | `GET /api/status` returns HTTP 200 |
@@ -122,7 +122,7 @@
    | **Region**       | Oregon (or nearest)            |
    | **Branch**       | `master`                       |
    | **Runtime**      | Node                           |
-   | **Build Command**| `npm install --legacy-peer-deps && npm run build` |
+   | **Build Command**| `npm install --include=dev --legacy-peer-deps && npm run build` |
    | **Start Command**| `npm start`                    |
    | **Instance Type**| Free                           |
 
