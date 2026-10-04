@@ -31,7 +31,11 @@ export function getEffectiveApiBase(): string {
   return noTrailing ? `${noTrailing}/api` : '/api';
 }
 
-export const API_BASE = getEffectiveApiBase();
+export const API_BASE = {
+  toString: () => getEffectiveApiBase(),
+  valueOf: () => getEffectiveApiBase(),
+  [Symbol.toPrimitive]: () => getEffectiveApiBase(),
+} as any as string;
 
 export const AUTH_TOKEN_KEY = 'clearcue_auth_token';
 

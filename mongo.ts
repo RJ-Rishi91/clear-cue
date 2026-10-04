@@ -18,12 +18,108 @@ export async function connectMongo(): Promise<boolean> {
     });
     isMongoConnected = true;
     console.log('✅ Connected successfully to MongoDB Atlas!');
+    await seedMongoRoleAccounts();
     return true;
   } catch (err: any) {
     console.warn('⚠️ MongoDB Atlas connection error:', err.message);
     console.log('ℹ️ Falling back to local persistent store.');
     isMongoConnected = false;
     return false;
+  }
+}
+
+export async function seedMongoRoleAccounts(): Promise<void> {
+  const seedAccounts = [
+    {
+      username: 'master',
+      password: 'MasterPassword123!',
+      name: 'Chief Master Supervisor',
+      email: 'master@clearcue.app',
+      role: 'System Master Administrator',
+      accountRole: 'master',
+      agency: 'ClearCue Global HQ',
+      avatar: 'avatar-4',
+    },
+    {
+      username: 'admin',
+      password: 'AdminPassword123!',
+      name: 'Operations Admin Director',
+      email: 'admin@clearcue.app',
+      role: 'Agency Operations Director',
+      accountRole: 'admin',
+      agency: 'CoverDirect Operations',
+      avatar: 'avatar-2',
+    },
+    {
+      username: 'teacher',
+      password: 'TeacherPassword123!',
+      name: 'Professor Cuckoo (Lead Coach)',
+      email: 'teacher@clearcue.app',
+      role: 'Lead Insurance Communication Instructor',
+      accountRole: 'teacher',
+      agency: 'ClearCue Training Academy',
+      avatar: 'avatar-5',
+    },
+    {
+      username: 'user',
+      password: 'UserPassword123!',
+      name: 'Alex Taylor (Trainee)',
+      email: 'alex.taylor@agency.com',
+      role: 'Commercial Lines CSR',
+      accountRole: 'user',
+      agency: 'Summit Peak Risk Partners',
+      avatar: 'avatar-3',
+    },
+    {
+      username: 'testagent',
+      password: 'Password123!',
+      name: 'Sarah Jenkins (Test Agent)',
+      email: 'sarah.jenkins@coverdirect.com',
+      role: 'Insurance Operations Specialist (VA)',
+      accountRole: 'user',
+      agency: 'CoverDirect Agency US',
+      avatar: 'avatar-1',
+    },
+  ];
+
+  for (const acc of seedAccounts) {
+    try {
+      const existing = await MongoUser.findOne({ username: acc.username });
+      const passwordHash = await bcrypt.hash(acc.password, 10);
+      if (!existing) {
+        const user = await MongoUser.create({
+          username: acc.username,
+          name: acc.name,
+          email: acc.email,
+          role: acc.role,
+          accountRole: acc.accountRole,
+          agency: acc.agency,
+          avatar: acc.avatar,
+          passwordHash,
+        });
+
+        await MongoProgress.findOneAndUpdate(
+          { userId: String(user._id) },
+          {
+            $setOnInsert: {
+              userId: String(user._id),
+              totalChecked: 5,
+              averageScore: 86,
+              flashcardsMastered: 35,
+              memoryMatchHighScore: 90,
+              pronunciationChecksCount: 4,
+              pronunciationAvgAccuracy: 88,
+              completedScenarioIds: ['carrier-loss-runs'],
+              streakDays: 3,
+              lastActiveDate: new Date().toISOString().split('T')[0],
+            },
+          },
+          { upsert: true }
+        );
+      }
+    } catch (err: any) {
+      console.warn(`Seed notice for ${acc.username}:`, err.message);
+    }
   }
 }
 
