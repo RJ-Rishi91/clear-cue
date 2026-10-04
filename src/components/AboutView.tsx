@@ -56,14 +56,14 @@ export const AboutView: React.FC<AboutViewProps> = ({ onNavigate }) => {
             <div className="relative w-52 sm:w-60">
               <div className="relative rounded-3xl overflow-hidden border-2 border-slate-200 shadow-md bg-slate-100 aspect-square">
                 <img
-                  src="1767335959758.jpg"
+                  src="/prateek-bhatt.jpeg"
                   alt="Prateek Bhatt - Founder of ClearCue"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-500"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    if (target.src !== window.location.origin + '/assets/prateek-bhatt.jpg') {
-                      target.src = '/assets/prateek-bhatt.jpg';
+                    if (target.src !== window.location.origin + '/1767335959758.jpg') {
+                      target.src = '/1767335959758.jpg';
                     }
                   }}
                 />
